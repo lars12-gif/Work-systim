@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 
 # ---------------------------------------------------------
-# 1. إعداد الصفحة والستايل الهكر الأحمر الماتريكس
+# 1. إعداد الصفحة والستايل الهكر الأحمر
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="WORK // RED CYBER SYSTEM",
@@ -155,12 +155,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. إدارة قاعدة البيانات SQLite (الأعضاء + المستضيفين)
+# 2. إدارة قاعدة البيانات (SQLite)
 # ---------------------------------------------------------
 def init_db():
     conn = sqlite3.connect('work_system.db')
     c = conn.cursor()
-    # جدول الأعضاء
     c.execute('''
         CREATE TABLE IF NOT EXISTS members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -170,7 +169,6 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    # جدول المستضيفين
     c.execute('''
         CREATE TABLE IF NOT EXISTS hosts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,7 +180,24 @@ def init_db():
 
 init_db()
 
-# --- وظائف المستضيفين ---
+# --- دالة Callbacks للحذف المباشر والمضمون ---
+def callback_delete_member(member_id):
+    conn = sqlite3.connect('work_system.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM members WHERE id = ?', (member_id,))
+    conn.commit()
+    conn.close()
+    st.toast("تم حذف العضو من قاعدة البيانات بنجاح!", icon="✅")
+
+def callback_delete_host(host_id):
+    conn = sqlite3.connect('work_system.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM hosts WHERE id = ?', (host_id,))
+    conn.commit()
+    conn.close()
+    st.toast("تم حذف المستضيف بنجاح!", icon="✅")
+
+# --- وظائف الإضافة والجلب ---
 def add_host(host_name):
     host_name = host_name.strip()
     if not host_name or host_name == "مباشر (بدون دعوة)":
@@ -198,20 +213,6 @@ def add_host(host_name):
         conn.close()
         return False, f"المستضيف [{host_name}] موجود بـالفعل!"
 
-def delete_host_by_id(host_id):
-    conn = sqlite3.connect('work_system.db')
-    c = conn.cursor()
-    c.execute('DELETE FROM hosts WHERE id = ?', (host_id,))
-    conn.commit()
-    conn.close()
-
-def get_all_hosts():
-    conn = sqlite3.connect('work_system.db')
-    df = pd.read_sql_query('SELECT * FROM hosts ORDER BY host_name ASC', conn)
-    conn.close()
-    return df
-
-# --- وظائف الأعضاء ---
 def add_member(nickname, phone, referred_by):
     conn = sqlite3.connect('work_system.db')
     c = conn.cursor()
@@ -225,12 +226,11 @@ def add_member(nickname, phone, referred_by):
         conn.close()
         return False, f"اللقب [{nickname}] مسجل بـالفعل في القاعدة!"
 
-def delete_member_by_id(member_id):
+def get_all_hosts():
     conn = sqlite3.connect('work_system.db')
-    c = conn.cursor()
-    c.execute('DELETE FROM members WHERE id = ?', (member_id,))
-    conn.commit()
+    df = pd.read_sql_query('SELECT * FROM hosts ORDER BY host_name ASC', conn)
     conn.close()
+    return df
 
 def get_all_members():
     conn = sqlite3.connect('work_system.db')
@@ -269,12 +269,13 @@ menu = st.sidebar.radio(
     ]
 )
 
+# جلب البيانات بعد إتمام أية معالجة بالحذف أو الإضافة
 df_members = get_all_members()
 df_hosts = get_all_hosts()
 df_ref = get_referral_stats()
 
 # ---------------------------------------------------------
-# 4. أقسام الصفحة
+# 4. الأقسام
 # ---------------------------------------------------------
 
 # --- القسم الأول: لوحة التحكم ---
@@ -313,7 +314,6 @@ elif menu == "⚡ [2] تسجيل عضو جديد":
         with col_b:
             phone = st.text_input("رقم الهاتف (مع رمز الدولة):", placeholder="مثال: 9647700000000")
             
-        # جلب قائمة المستضيفين المعتمدين فقط
         hosts_list = df_hosts['host_name'].tolist() if not df_hosts.empty else []
         
         referred_by_select = st.selectbox(
@@ -327,10 +327,9 @@ elif menu == "⚡ [2] تسجيل عضو جديد":
         
         if submit_btn:
             if nickname and phone:
-                # التحقق إذا كان المستضيف مكتوب يدوياً لتسجيله تلقائياً
                 if custom_ref.strip():
                     final_host = custom_ref.strip()
-                    add_host(final_host) # إضافة تلقائية لقائمة المستضيفين
+                    add_host(final_host)
                 else:
                     final_host = referred_by_select
 
@@ -374,14 +373,13 @@ elif menu == "👑 [3] قائمة وتأثير المستضيفين":
     else:
         st.info("لا توجد إحالات أو مستضيفين جلبوا أعضاء حتى الآن.")
 
-# --- القسم الرابع: إدارة قائمة المستضيفين (إضافة / حذف) ---
+# --- القسم الرابع: إدارة قائمة المستضيفين ---
 elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/حذف)":
     st.title("⚙️ MANAGE HOSTS LIST")
     st.caption("> التحكم الكامل بقائمة المستضيفين المعتمدين")
     
     col_h1, col_h2 = st.columns(2)
     
-    # 1. إضافة مستضيف
     with col_h1:
         st.markdown('<div class="red-card">', unsafe_allow_html=True)
         st.subheader("➕ إضافة مستضيف جديد")
@@ -401,7 +399,6 @@ elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/
                     st.warning("اكتب اسم المستضيف أولاً!")
         st.markdown('</div>', unsafe_allow_html=True)
         
-    # 2. حذف مستضيف
     with col_h2:
         st.markdown('<div class="red-card">', unsafe_allow_html=True)
         st.subheader("🗑️ حذف مستضيف من القائمة")
@@ -413,10 +410,12 @@ elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/
                 host_row = df_hosts[df_hosts['host_name'] == host_to_del].iloc[0]
                 st.warning(f"هل أنت تأكد من حذف المستضيف [{host_row['host_name']}]؟")
                 
-                if st.button(f"🔴 تأكيد حذف المستضيف [{host_row['host_name']}]"):
-                    delete_host_by_id(host_row['id'])
-                    st.success(f"تم حذف المستضيف [{host_row['host_name']}] بنجاح.")
-                    st.rerun()
+                # استخدام Callback للحذف الفوري
+                st.button(
+                    f"🔴 تأكيد حذف المستضيف [{host_row['host_name']}]",
+                    on_click=callback_delete_host,
+                    args=(host_row['id'],)
+                )
         else:
             st.info("لا يوجد مستضيفين مسجلين حالياً.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -467,7 +466,7 @@ elif menu == "📂 [6] إدارة السجل وحذف الأعضاء":
         st.dataframe(display_df[['id', 'nickname', 'phone', 'referred_by', 'created_at']], use_container_width=True, hide_index=True)
         
         st.write("---")
-        st.subheader("🗑️ قسم حذف الأعضاء (حذف مؤكد بدون تعليق)")
+        st.subheader("🗑️ قسم حذف الأعضاء (حذف مؤكد بـ Callback)")
         
         member_list = ["-- اختر العضو --"] + df_members['nickname'].tolist()
         selected_to_delete = st.selectbox("اختر العضو المراد مسحه تماماً من البيانات:", member_list)
@@ -477,10 +476,12 @@ elif menu == "📂 [6] إدارة السجل وحذف الأعضاء":
             
             st.error(f"⚠️ تحذير: أنت على وشك حذف العضو [{target_data['nickname']}] (رقم: {target_data['phone']})")
             
-            if st.button(f"🔴 تأكيد حذف العضو [{target_data['nickname']}] الآن"):
-                delete_member_by_id(target_data['id'])
-                st.success(f"تم حذف العضو [{target_data['nickname']}] بنجاح من قاعدة البيانات!")
-                st.rerun()
+            # استخدام Callback للحذف الفوري
+            st.button(
+                f"🔴 تأكيد حذف العضو [{target_data['nickname']}] الآن",
+                on_click=callback_delete_member,
+                args=(target_data['id'],)
+            )
     else:
         st.info("لا يوجد أعضاء في قاعدة البيانات.")
-    
+            
