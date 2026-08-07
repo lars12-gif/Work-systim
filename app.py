@@ -3,10 +3,10 @@ import sqlite3
 import pandas as pd
 
 # ---------------------------------------------------------
-# 1. إعداد الصفحة والستايل الهكر الأحمر
+# 1. إعداد الصفحة وتأثيرات الماتريكس بلمسات Aurther
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="WORK // RED CYBER SYSTEM",
+    page_title="WORK // CYBER SYSTEM BY AURTHER",
     page_icon="🔴",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -130,6 +130,19 @@ st.markdown("""
         margin-bottom: 15px;
     }
     
+    .founder-badge {
+        background: linear-gradient(90deg, #ff0033 0%, #700016 100%);
+        color: #ffffff;
+        padding: 8px 15px;
+        border-radius: 6px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        border: 1px solid #ff3355;
+        box-shadow: 0 0 10px rgba(255, 0, 51, 0.5);
+        display: inline-block;
+        margin-top: 10px;
+    }
+
     .badge-red {
         background-color: #ff0033;
         color: white;
@@ -155,7 +168,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. إدارة قاعدة البيانات (SQLite)
+# 2. إدارة قاعدة البيانات (SQLite) مع إصلاح تحويل ID
 # ---------------------------------------------------------
 def init_db():
     conn = sqlite3.connect('work_system.db')
@@ -180,22 +193,20 @@ def init_db():
 
 init_db()
 
-# --- دالة Callbacks للحذف المباشر والمضمون ---
-def callback_delete_member(member_id):
+# --- دالة الحذف المضمونة مع تحويل ID الصريح ---
+def delete_member_by_id(member_id):
     conn = sqlite3.connect('work_system.db')
     c = conn.cursor()
-    c.execute('DELETE FROM members WHERE id = ?', (member_id,))
+    c.execute('DELETE FROM members WHERE id = ?', (int(member_id),))
     conn.commit()
     conn.close()
-    st.toast("تم حذف العضو من قاعدة البيانات بنجاح!", icon="✅")
 
-def callback_delete_host(host_id):
+def delete_host_by_id(host_id):
     conn = sqlite3.connect('work_system.db')
     c = conn.cursor()
-    c.execute('DELETE FROM hosts WHERE id = ?', (host_id,))
+    c.execute('DELETE FROM hosts WHERE id = ?', (int(host_id),))
     conn.commit()
     conn.close()
-    st.toast("تم حذف المستضيف بنجاح!", icon="✅")
 
 # --- وظائف الإضافة والجلب ---
 def add_host(host_name):
@@ -252,10 +263,12 @@ def get_referral_stats():
     return df
 
 # ---------------------------------------------------------
-# 3. القائمة الجانبية (Sidebar Navigation)
+# 3. القائمة الجانبية وحقوق Aurther
 # ---------------------------------------------------------
 st.sidebar.title("🔴 WORK // TERMINAL")
+st.sidebar.markdown('<div class="founder-badge">👑 FOUNDER: Aurther</div>', unsafe_allow_html=True)
 st.sidebar.caption("نظام إدارة الأعضاء والمستضيفين")
+st.sidebar.write("---")
 
 menu = st.sidebar.radio(
     "انتقل إلى القسم:",
@@ -269,18 +282,21 @@ menu = st.sidebar.radio(
     ]
 )
 
-# جلب البيانات بعد إتمام أية معالجة بالحذف أو الإضافة
+st.sidebar.write("---")
+st.sidebar.caption("© ALL RIGHTS RESERVED TO AURTHER")
+
 df_members = get_all_members()
 df_hosts = get_all_hosts()
 df_ref = get_referral_stats()
 
 # ---------------------------------------------------------
-# 4. الأقسام
+# 4. أقسام الصفحة
 # ---------------------------------------------------------
 
 # --- القسم الأول: لوحة التحكم ---
 if menu == "📊 [1] لوحة التحكم الرئيسية":
     st.title("⚡ WORK // SYSTEM DASHBOARD")
+    st.markdown("##### 🚀 Developed & Founded by **Aurther**")
     st.caption("> نظرة عامة على أحصائيات القروب والمستضيفين")
     
     col1, col2, col3 = st.columns(3)
@@ -410,12 +426,10 @@ elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/
                 host_row = df_hosts[df_hosts['host_name'] == host_to_del].iloc[0]
                 st.warning(f"هل أنت تأكد من حذف المستضيف [{host_row['host_name']}]؟")
                 
-                # استخدام Callback للحذف الفوري
-                st.button(
-                    f"🔴 تأكيد حذف المستضيف [{host_row['host_name']}]",
-                    on_click=callback_delete_host,
-                    args=(host_row['id'],)
-                )
+                if st.button(f"🔴 تأكيد حذف المستضيف [{host_row['host_name']}]"):
+                    delete_host_by_id(host_row['id'])
+                    st.success(f"تم حذف المستضيف [{host_row['host_name']}] بنجاح!")
+                    st.rerun()
         else:
             st.info("لا يوجد مستضيفين مسجلين حالياً.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -466,7 +480,7 @@ elif menu == "📂 [6] إدارة السجل وحذف الأعضاء":
         st.dataframe(display_df[['id', 'nickname', 'phone', 'referred_by', 'created_at']], use_container_width=True, hide_index=True)
         
         st.write("---")
-        st.subheader("🗑️ قسم حذف الأعضاء (حذف مؤكد بـ Callback)")
+        st.subheader("🗑️ قسم حذف الأعضاء (حذف مباشر)")
         
         member_list = ["-- اختر العضو --"] + df_members['nickname'].tolist()
         selected_to_delete = st.selectbox("اختر العضو المراد مسحه تماماً من البيانات:", member_list)
@@ -474,14 +488,11 @@ elif menu == "📂 [6] إدارة السجل وحذف الأعضاء":
         if selected_to_delete != "-- اختر العضو --":
             target_data = df_members[df_members['nickname'] == selected_to_delete].iloc[0]
             
-            st.error(f"⚠️ تحذير: أنت على وشك حذف العضو [{target_data['nickname']}] (رقم: {target_data['phone']})")
+            st.error(f"⚠️ تحذير: أنت على وشك حذف العضو [{target_data['nickname']}] (ID: #{target_data['id']})")
             
-            # استخدام Callback للحذف الفوري
-            st.button(
-                f"🔴 تأكيد حذف العضو [{target_data['nickname']}] الآن",
-                on_click=callback_delete_member,
-                args=(target_data['id'],)
-            )
+            if st.button(f"🔴 تأكيد حذف العضو [{target_data['nickname']}] الآن"):
+                delete_member_by_id(target_data['id'])
+                st.success(f"تم حذف العضو [{target_data['nickname']}] بنجاح من قاعدة البيانات!")
+                st.rerun()
     else:
         st.info("لا يوجد أعضاء في قاعدة البيانات.")
-            
