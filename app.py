@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 
 # ---------------------------------------------------------
-# 1. إعداد الصفحة وتأثيرات الماتريكس باللون الأحمر
+# 1. إعداد الصفحة والستايل الهكر الأحمر الماتريكس
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="WORK // RED CYBER SYSTEM",
@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# حقن خلفية الماتريكس بالأرقام (0 , 1) باللون الأحمر + CSS النيون الأحمر
+# خلفية الأرقام المتحركة (0 , 1) باللون الأحمر النيون
 st.markdown("""
     <canvas id="matrixCanvas"></canvas>
     <script>
@@ -57,7 +57,6 @@ st.markdown("""
     </script>
 
     <style>
-    /* جعل الكانفاس خلفية للموقع */
     #matrixCanvas {
         position: fixed;
         top: 0;
@@ -69,27 +68,23 @@ st.markdown("""
         pointer-events: none;
     }
 
-    /* الخلفية والتنسيقات الحمراء والسوداء */
     .stApp {
         background: linear-gradient(180deg, #0a0003 0%, #000000 100%);
         color: #ffffff;
         font-family: 'Courier New', monospace;
     }
 
-    /* الشريط الجانبي */
     section[data-testid="stSidebar"] {
         background-color: #0d0004 !important;
         border-right: 1px solid #ff0033 !important;
     }
 
-    /* العناوين والسيارات */
     h1, h2, h3, h4, label, .stMarkdown {
         color: #ff3355 !important;
         font-family: 'Courier New', monospace;
         text-shadow: 0 0 5px rgba(255, 0, 51, 0.5);
     }
 
-    /* الإحصائيات Top Metrics */
     div[data-testid="stMetricValue"] {
         color: #ff0033 !important;
         font-size: 2rem !important;
@@ -104,7 +99,6 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(255, 0, 51, 0.3);
     }
 
-    /* مدخلات النصوص والقوائم */
     input, select, textarea {
         background-color: #120005 !important;
         color: #ffffff !important;
@@ -112,7 +106,6 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* الأزرار */
     .stButton>button {
         background-color: rgba(20, 0, 6, 0.8);
         color: #ff3355;
@@ -128,7 +121,6 @@ st.markdown("""
         box-shadow: 0 0 20px #ff0033;
     }
 
-    /* كروت المستضيفين والأعضاء Custom Cards */
     .red-card {
         background: rgba(20, 0, 6, 0.9);
         border: 1px solid #ff0033;
@@ -147,7 +139,6 @@ st.markdown("""
         font-weight: bold;
     }
 
-    /* زر الواتساب المباشر */
     .wa-btn {
         display: block;
         text-align: center;
@@ -160,18 +151,16 @@ st.markdown("""
         margin-top: 10px;
         box-shadow: 0 0 10px rgba(37, 211, 102, 0.4);
     }
-    .wa-btn:hover {
-        background-color: #1ebc57;
-    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. إدارة قاعدة البيانات SQLite
+# 2. إدارة قاعدة البيانات SQLite (الأعضاء + المستضيفين)
 # ---------------------------------------------------------
 def init_db():
     conn = sqlite3.connect('work_system.db')
     c = conn.cursor()
+    # جدول الأعضاء
     c.execute('''
         CREATE TABLE IF NOT EXISTS members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -181,11 +170,48 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # جدول المستضيفين
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS hosts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            host_name TEXT UNIQUE NOT NULL
+        )
+    ''')
     conn.commit()
     conn.close()
 
 init_db()
 
+# --- وظائف المستضيفين ---
+def add_host(host_name):
+    host_name = host_name.strip()
+    if not host_name or host_name == "مباشر (بدون دعوة)":
+        return False, "اسم غير صالـح!"
+    conn = sqlite3.connect('work_system.db')
+    c = conn.cursor()
+    try:
+        c.execute('INSERT INTO hosts (host_name) VALUES (?)', (host_name,))
+        conn.commit()
+        conn.close()
+        return True, f"تمت إضافة المستضيف [{host_name}] بنجاح!"
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False, f"المستضيف [{host_name}] موجود بـالفعل!"
+
+def delete_host_by_id(host_id):
+    conn = sqlite3.connect('work_system.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM hosts WHERE id = ?', (host_id,))
+    conn.commit()
+    conn.close()
+
+def get_all_hosts():
+    conn = sqlite3.connect('work_system.db')
+    df = pd.read_sql_query('SELECT * FROM hosts ORDER BY host_name ASC', conn)
+    conn.close()
+    return df
+
+# --- وظائف الأعضاء ---
 def add_member(nickname, phone, referred_by):
     conn = sqlite3.connect('work_system.db')
     c = conn.cursor()
@@ -229,20 +255,22 @@ def get_referral_stats():
 # 3. القائمة الجانبية (Sidebar Navigation)
 # ---------------------------------------------------------
 st.sidebar.title("🔴 WORK // TERMINAL")
-st.sidebar.caption("نظام إدارة أعضاء القروب والإحالات")
+st.sidebar.caption("نظام إدارة الأعضاء والمستضيفين")
 
 menu = st.sidebar.radio(
     "انتقل إلى القسم:",
     [
         "📊 [1] لوحة التحكم الرئيسية",
         "⚡ [2] تسجيل عضو جديد",
-        "👑 [3] نظام الفرق والمستضيفين",
-        "🔍 [4] استعلام عن عضو",
-        "📂 [5] إدارة السجل وحذف الأعضاء"
+        "👑 [3] قائمة وتأثير المستضيفين",
+        "⚙️ [4] إدارة قائمة المستضيفين (إضافة/حذف)",
+        "🔍 [5] استعلام عن عضو",
+        "📂 [6] إدارة السجل وحذف الأعضاء"
     ]
 )
 
 df_members = get_all_members()
+df_hosts = get_all_hosts()
 df_ref = get_referral_stats()
 
 # ---------------------------------------------------------
@@ -252,19 +280,19 @@ df_ref = get_referral_stats()
 # --- القسم الأول: لوحة التحكم ---
 if menu == "📊 [1] لوحة التحكم الرئيسية":
     st.title("⚡ WORK // SYSTEM DASHBOARD")
-    st.caption("> نظرة عامة على أحصائيات أعضاء القروب")
+    st.caption("> نظرة عامة على أحصائيات القروب والمستضيفين")
     
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(label="إجمالي الأعضاء", value=len(df_members))
+    with col2:
+        st.metric(label="عدد المستضيفين المعتمدين", value=len(df_hosts))
     
     top_host = df_ref.iloc[0]['host'] if not df_ref.empty else "لا يوجد"
     top_count = int(df_ref.iloc[0]['count']) if not df_ref.empty else 0
     
-    with col2:
-        st.metric(label="أقوى مستضيف (Top Host)", value=top_host)
     with col3:
-        st.metric(label="أعلى إحالات جُلبت", value=f"{top_count} أعضاء")
+        st.metric(label="أقوى مستضيف (Top Host)", value=f"{top_host} ({top_count})")
 
     st.write("---")
     st.subheader("> آخر الأعضاء المنضمين حديثاً")
@@ -285,20 +313,27 @@ elif menu == "⚡ [2] تسجيل عضو جديد":
         with col_b:
             phone = st.text_input("رقم الهاتف (مع رمز الدولة):", placeholder="مثال: 9647700000000")
             
-        existing_nicknames = df_members['nickname'].tolist() if not df_members.empty else []
+        # جلب قائمة المستضيفين المعتمدين فقط
+        hosts_list = df_hosts['host_name'].tolist() if not df_hosts.empty else []
         
         referred_by_select = st.selectbox(
             "اختر المستضيف (دخل من طرف مَن؟):",
-            ["مباشر (بدون دعوة)"] + existing_nicknames
+            ["مباشر (بدون دعوة)"] + hosts_list
         )
         
-        custom_ref = st.text_input("أو اكتب اسم مستضيف جديد يدوياً:")
+        custom_ref = st.text_input("أو اكتب اسم مستضيف جديد يدوياً (سيتم حفظه تلقائياً لقائمة المستضيفين):")
         
         submit_btn = st.form_submit_button("EXECUTE_REGISTER // تسجيل العضو")
         
         if submit_btn:
-            final_host = custom_ref.strip() if custom_ref.strip() else referred_by_select
             if nickname and phone:
+                # التحقق إذا كان المستضيف مكتوب يدوياً لتسجيله تلقائياً
+                if custom_ref.strip():
+                    final_host = custom_ref.strip()
+                    add_host(final_host) # إضافة تلقائية لقائمة المستضيفين
+                else:
+                    final_host = referred_by_select
+
                 success, msg = add_member(nickname.strip(), phone.strip(), final_host)
                 if success:
                     st.success(msg)
@@ -308,20 +343,19 @@ elif menu == "⚡ [2] تسجيل عضو جديد":
             else:
                 st.warning("يرجى كتابة اللقب ورقم الهاتف كاملاً!")
 
-# --- القسم الثالث: نظام الفرق والمستضيفين ---
-elif menu == "👑 [3] نظام الفرق والمستضيفين":
-    st.title("👑 HOST TEAMS & REFERRALS")
-    st.caption("> قائمة ترتيب المستضيفين والأشخاص القادمين من طرف كل مستضيف")
+# --- القسم الثالث: قائمة وتأثير المستضيفين ---
+elif menu == "👑 [3] قائمة وتأثير المستضيفين":
+    st.title("👑 HOST TEAMS & LEADERBOARD")
+    st.caption("> استعراض نتائج ودعوات المستضيفين والأعضاء القادمين عن طريقهم")
     
     if not df_ref.empty:
-        st.subheader("> قائمة الترتيب (Leaderboard)")
-        
+        st.subheader("> قائمة الترتيب حسب الدعوات")
         df_ref_ranked = df_ref.copy()
-        df_ref_ranked.columns = ['المستضيف (صاحب الدعوة)', 'عدد الأشخاص']
+        df_ref_ranked.columns = ['المستضيف (صاحب الدعوة)', 'عدد الأشخاص المضافين']
         st.dataframe(df_ref_ranked, use_container_width=True, hide_index=True)
         
         st.write("---")
-        st.subheader("> استعراض كارت المستضيف وفريقه")
+        st.subheader("> استعراض أعضاء مستضيف معين")
         
         selected_host = st.selectbox("اختر اسم المستضيف:", df_ref['host'].tolist())
         
@@ -331,17 +365,69 @@ elif menu == "👑 [3] نظام الفرق والمستضيفين":
             st.markdown(f"""
                 <div class="red-card">
                     <h2>👑 المستضيف: {selected_host}</h2>
-                    <p>عدد الأعضاء المضافين عن طريقه: <span class="badge-red">{len(invited_members)} أعضاء</span></p>
+                    <p>عدد الأعضاء القادمين عن طريقه: <span class="badge-red">{len(invited_members)} أعضاء</span></p>
                 </div>
             """, unsafe_allow_html=True)
             
-            st.write(f"**قائمة الأعضاء الذين جلبهم [{selected_host}]:**")
+            st.write(f"**الأعضاء الذين انضموا عن طريق [{selected_host}]:**")
             st.dataframe(invited_members[['id', 'nickname', 'phone', 'created_at']], use_container_width=True, hide_index=True)
     else:
-        st.info("لا يوجد إحالات أو مستضيفين مسجلين حتى الآن.")
+        st.info("لا توجد إحالات أو مستضيفين جلبوا أعضاء حتى الآن.")
 
-# --- القسم الرابع: استعلام عن عضو ---
-elif menu == "🔍 [4] استعلام عن عضو":
+# --- القسم الرابع: إدارة قائمة المستضيفين (إضافة / حذف) ---
+elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/حذف)":
+    st.title("⚙️ MANAGE HOSTS LIST")
+    st.caption("> التحكم الكامل بقائمة المستضيفين المعتمدين")
+    
+    col_h1, col_h2 = st.columns(2)
+    
+    # 1. إضافة مستضيف
+    with col_h1:
+        st.markdown('<div class="red-card">', unsafe_allow_html=True)
+        st.subheader("➕ إضافة مستضيف جديد")
+        with st.form("add_host_form", clear_on_submit=True):
+            new_host_name = st.text_input("اسم المستضيف الجديد:")
+            btn_add_h = st.form_submit_button("إضافة المستضيف للقائمة")
+            
+            if btn_add_h:
+                if new_host_name:
+                    ok, res_msg = add_host(new_host_name)
+                    if ok:
+                        st.success(res_msg)
+                        st.rerun()
+                    else:
+                        st.error(res_msg)
+                else:
+                    st.warning("اكتب اسم المستضيف أولاً!")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    # 2. حذف مستضيف
+    with col_h2:
+        st.markdown('<div class="red-card">', unsafe_allow_html=True)
+        st.subheader("🗑️ حذف مستضيف من القائمة")
+        
+        if not df_hosts.empty:
+            host_to_del = st.selectbox("اختر المستضيف المراد حذفه:", ["-- اختر --"] + df_hosts['host_name'].tolist())
+            
+            if host_to_del != "-- اختر --":
+                host_row = df_hosts[df_hosts['host_name'] == host_to_del].iloc[0]
+                st.warning(f"هل أنت تأكد من حذف المستضيف [{host_row['host_name']}]؟")
+                
+                if st.button(f"🔴 تأكيد حذف المستضيف [{host_row['host_name']}]"):
+                    delete_host_by_id(host_row['id'])
+                    st.success(f"تم حذف المستضيف [{host_row['host_name']}] بنجاح.")
+                    st.rerun()
+        else:
+            st.info("لا يوجد مستضيفين مسجلين حالياً.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.write("---")
+    st.subheader("> قائمة جميع المستضيفين المعتمدين")
+    if not df_hosts.empty:
+        st.dataframe(df_hosts[['id', 'host_name']], use_container_width=True, hide_index=True)
+
+# --- القسم الخامس: استعلام عن عضو ---
+elif menu == "🔍 [5] استعلام عن عضو":
     st.title("🔍 SEARCH MEMBER")
     
     if not df_members.empty:
@@ -362,10 +448,10 @@ elif menu == "🔍 [4] استعلام عن عضو":
     else:
         st.info("القاعدة فارغة حالياً.")
 
-# --- القسم الخامس: إدارة السجل وحذف الأعضاء ---
-elif menu == "📂 [5] إدارة السجل وحذف الأعضاء":
+# --- القسم السادس: إدارة السجل وحذف الأعضاء ---
+elif menu == "📂 [6] إدارة السجل وحذف الأعضاء":
     st.title("📂 DATABASE MANAGEMENT")
-    st.caption("> البحث في القاعدة وتأكيد حذف الأعضاء")
+    st.caption("> فلترة السجل والتأكيد الصارم لحذف الأعضاء")
     
     if not df_members.empty:
         search_kw = st.text_input("🔍 فلترة السجل بالاسم، الرقم، أو الداعي:")
@@ -378,24 +464,23 @@ elif menu == "📂 [5] إدارة السجل وحذف الأعضاء":
                 display_df['referred_by'].str.contains(search_kw, case=False, na=False)
             ]
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df[['id', 'nickname', 'phone', 'referred_by', 'created_at']], use_container_width=True, hide_index=True)
         
         st.write("---")
-        st.subheader("🗑️ قسم حذف الأعضاء (حذف مؤكد)")
+        st.subheader("🗑️ قسم حذف الأعضاء (حذف مؤكد بدون تعليق)")
         
-        # ربط خاصية الحذف بـ Session State لضمان عدم التعليق
         member_list = ["-- اختر العضو --"] + df_members['nickname'].tolist()
         selected_to_delete = st.selectbox("اختر العضو المراد مسحه تماماً من البيانات:", member_list)
         
         if selected_to_delete != "-- اختر العضو --":
             target_data = df_members[df_members['nickname'] == selected_to_delete].iloc[0]
             
-            st.error(f"⚠️ تحذير: أنت على وشك حذف العضو [{target_data['nickname']}] (ID: #{target_data['id']})")
+            st.error(f"⚠️ تحذير: أنت على وشك حذف العضو [{target_data['nickname']}] (رقم: {target_data['phone']})")
             
-            if st.button(f"🔴 تأكيد حذف [{target_data['nickname']}] الآن"):
+            if st.button(f"🔴 تأكيد حذف العضو [{target_data['nickname']}] الآن"):
                 delete_member_by_id(target_data['id'])
                 st.success(f"تم حذف العضو [{target_data['nickname']}] بنجاح من قاعدة البيانات!")
                 st.rerun()
     else:
         st.info("لا يوجد أعضاء في قاعدة البيانات.")
-                    
+    
