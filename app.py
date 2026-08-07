@@ -3,172 +3,125 @@ import sqlite3
 import pandas as pd
 
 # ---------------------------------------------------------
-# 1. إعداد الصفحة وتأثيرات الماتريكس بلمسات Aurther
+# 1. إعداد الصفحة وتصميم هادئ ومودرن (Modern Slate)
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="WORK // CYBER SYSTEM BY AURTHER",
-    page_icon="🔴",
+    page_title="WORK // SYSTEM BY AURTHER",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# خلفية الأرقام المتحركة (0 , 1) باللون الأحمر النيون
+# تصميم عصري مريح للعين (Dark Slate + Soft Cyan & Indigo)
 st.markdown("""
-    <canvas id="matrixCanvas"></canvas>
-    <script>
-        const canvas = document.getElementById('matrixCanvas');
-        const ctx = canvas.getContext('2d');
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        const chars = '01';
-        const fontSize = 16;
-        let columns = Math.floor(canvas.width / fontSize);
-        let rainDrops = Array(columns).fill(1);
-
-        function drawMatrix() {
-            ctx.fillStyle = 'rgba(5, 0, 2, 0.12)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = '#ff0033';
-            ctx.font = fontSize + 'px monospace';
-
-            columns = Math.floor(canvas.width / fontSize);
-            if (rainDrops.length < columns) {
-                while (rainDrops.length < columns) rainDrops.push(1);
-            }
-
-            for (let i = 0; i < rainDrops.length; i++) {
-                const text = chars.charAt(Math.floor(Math.random() * chars.length));
-                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
-
-                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-                    rainDrops[i] = 0;
-                }
-                rainDrops[i]++;
-            }
-        }
-        setInterval(drawMatrix, 40);
-    </script>
-
     <style>
-    #matrixCanvas {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: -1;
-        opacity: 0.35;
-        pointer-events: none;
-    }
-
+    /* الخلفية العامة */
     .stApp {
-        background: linear-gradient(180deg, #0a0003 0%, #000000 100%);
-        color: #ffffff;
-        font-family: 'Courier New', monospace;
+        background-color: #0f172a;
+        color: #f8fafc;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
 
+    /* الشريط الجانبي */
     section[data-testid="stSidebar"] {
-        background-color: #0d0004 !important;
-        border-right: 1px solid #ff0033 !important;
+        background-color: #1e293b !important;
+        border-right: 1px solid #334155 !important;
     }
 
+    /* العناوين والنصوص */
     h1, h2, h3, h4, label, .stMarkdown {
-        color: #ff3355 !important;
-        font-family: 'Courier New', monospace;
-        text-shadow: 0 0 5px rgba(255, 0, 51, 0.5);
+        color: #f8fafc !important;
+        font-family: system-ui, -apple-system, sans-serif;
     }
 
+    /* الإحصائيات (Metrics) */
     div[data-testid="stMetricValue"] {
-        color: #ff0033 !important;
-        font-size: 2rem !important;
-        font-weight: bold;
-        text-shadow: 0 0 10px #ff0033;
+        color: #38bdf8 !important;
+        font-size: 1.8rem !important;
+        font-weight: 700;
     }
     div[data-testid="stMetric"] {
-        background: rgba(20, 0, 6, 0.85);
-        border: 1px solid #ff0033;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 0 15px rgba(255, 0, 51, 0.3);
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
+    /* حقول الإدخال والقوائم */
     input, select, textarea {
-        background-color: #120005 !important;
-        color: #ffffff !important;
-        border: 1px solid #ff0033 !important;
-        border-radius: 6px !important;
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
     }
 
+    /* الأزرار المودرن */
     .stButton>button {
-        background-color: rgba(20, 0, 6, 0.8);
-        color: #ff3355;
-        border: 1px solid #ff0033;
-        border-radius: 6px;
-        font-weight: bold;
-        transition: all 0.3s ease;
-        text-shadow: 0 0 5px #ff0033;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 8px 16px;
+        transition: all 0.2s ease;
     }
     .stButton>button:hover {
-        background-color: #ff0033;
-        color: #ffffff;
-        box-shadow: 0 0 20px #ff0033;
+        background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
     }
 
-    .red-card {
-        background: rgba(20, 0, 6, 0.9);
-        border: 1px solid #ff0033;
+    /* الكروت العصريّة (Modern Cards) */
+    .modern-card {
+        background-color: #1e293b;
+        border: 1px solid #334155;
         padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 0 15px rgba(255, 0, 51, 0.25);
-        margin-bottom: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        margin-bottom: 16px;
     }
     
     .founder-badge {
-        background: linear-gradient(90deg, #ff0033 0%, #700016 100%);
+        background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
         color: #ffffff;
-        padding: 8px 15px;
-        border-radius: 6px;
-        font-weight: bold;
-        letter-spacing: 1px;
-        border: 1px solid #ff3355;
-        box-shadow: 0 0 10px rgba(255, 0, 51, 0.5);
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 700;
         display: inline-block;
-        margin-top: 10px;
+        margin-top: 8px;
+        letter-spacing: 0.5px;
     }
 
-    .badge-red {
-        background-color: #ff0033;
+    .badge-soft {
+        background-color: #0284c7;
         color: white;
-        padding: 4px 10px;
-        border-radius: 4px;
+        padding: 4px 12px;
+        border-radius: 6px;
         font-size: 0.85rem;
-        font-weight: bold;
+        font-weight: 600;
     }
 
+    /* زر الواتساب */
     .wa-btn {
         display: block;
         text-align: center;
-        background-color: #25D366;
+        background-color: #10b981;
         color: white !important;
         padding: 10px;
-        border-radius: 6px;
+        border-radius: 8px;
         text-decoration: none;
-        font-weight: bold;
-        margin-top: 10px;
-        box-shadow: 0 0 10px rgba(37, 211, 102, 0.4);
+        font-weight: 600;
+        margin-top: 12px;
+        transition: 0.2s;
+    }
+    .wa-btn:hover {
+        background-color: #059669;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. إدارة قاعدة البيانات (SQLite) مع إصلاح تحويل ID
+# 2. إدارة قاعدة البيانات (SQLite) مع تحويل ID الصريح
 # ---------------------------------------------------------
 def init_db():
     conn = sqlite3.connect('work_system.db')
@@ -193,7 +146,7 @@ def init_db():
 
 init_db()
 
-# --- دالة الحذف المضمونة مع تحويل ID الصريح ---
+# --- دالة الحذف المضمنة مع تحويل ID الصريح لضمان التنفيذ ---
 def delete_member_by_id(member_id):
     conn = sqlite3.connect('work_system.db')
     c = conn.cursor()
@@ -265,25 +218,25 @@ def get_referral_stats():
 # ---------------------------------------------------------
 # 3. القائمة الجانبية وحقوق Aurther
 # ---------------------------------------------------------
-st.sidebar.title("🔴 WORK // TERMINAL")
+st.sidebar.title("⚡ WORK SYSTEM")
 st.sidebar.markdown('<div class="founder-badge">👑 FOUNDER: Aurther</div>', unsafe_allow_html=True)
-st.sidebar.caption("نظام إدارة الأعضاء والمستضيفين")
+st.sidebar.caption("نظام إدارة أعضاء القروب والمستضيفين")
 st.sidebar.write("---")
 
 menu = st.sidebar.radio(
-    "انتقل إلى القسم:",
+    "القائمة الرئيسية:",
     [
-        "📊 [1] لوحة التحكم الرئيسية",
+        "📊 [1] لوحة التحكم",
         "⚡ [2] تسجيل عضو جديد",
-        "👑 [3] قائمة وتأثير المستضيفين",
-        "⚙️ [4] إدارة قائمة المستضيفين (إضافة/حذف)",
+        "👑 [3] قائمة الإحالات",
+        "⚙️ [4] إدارة المستضيفين",
         "🔍 [5] استعلام عن عضو",
-        "📂 [6] إدارة السجل وحذف الأعضاء"
+        "📂 [6] إدارة السجل والحذف"
     ]
 )
 
 st.sidebar.write("---")
-st.sidebar.caption("© ALL RIGHTS RESERVED TO AURTHER")
+st.sidebar.caption("© All Rights Reserved to **Aurther**")
 
 df_members = get_all_members()
 df_hosts = get_all_hosts()
@@ -294,34 +247,34 @@ df_ref = get_referral_stats()
 # ---------------------------------------------------------
 
 # --- القسم الأول: لوحة التحكم ---
-if menu == "📊 [1] لوحة التحكم الرئيسية":
-    st.title("⚡ WORK // SYSTEM DASHBOARD")
-    st.markdown("##### 🚀 Developed & Founded by **Aurther**")
-    st.caption("> نظرة عامة على أحصائيات القروب والمستضيفين")
+if menu == "📊 [1] لوحة التحكم":
+    st.title("📊 WORK // DASHBOARD")
+    st.markdown("##### Developed & Founded by **Aurther**")
+    st.caption("نظرة عامة على أحصائيات الأعضاء والمستضيفين")
     
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(label="إجمالي الأعضاء", value=len(df_members))
     with col2:
-        st.metric(label="عدد المستضيفين المعتمدين", value=len(df_hosts))
+        st.metric(label="عدد المستضيفين", value=len(df_hosts))
     
     top_host = df_ref.iloc[0]['host'] if not df_ref.empty else "لا يوجد"
     top_count = int(df_ref.iloc[0]['count']) if not df_ref.empty else 0
     
     with col3:
-        st.metric(label="أقوى مستضيف (Top Host)", value=f"{top_host} ({top_count})")
+        st.metric(label="أقوى مستضيف", value=f"{top_host} ({top_count})")
 
     st.write("---")
-    st.subheader("> آخر الأعضاء المنضمين حديثاً")
+    st.subheader("آخر الأعضاء المنضمين حديثاً")
     if not df_members.empty:
         st.dataframe(df_members.head(5)[['id', 'nickname', 'phone', 'referred_by', 'created_at']], use_container_width=True, hide_index=True)
     else:
-        st.info("لا توجد بيانات حتى الآن.")
+        st.info("لا توجد بيانات مسجلة بعد.")
 
 # --- القسم الثاني: تسجيل عضو جديد ---
 elif menu == "⚡ [2] تسجيل عضو جديد":
-    st.title("⚡ REGISTER NEW MEMBER")
-    st.caption("> إضافة عضو جديد لقاعدة بيانات WORK")
+    st.title("⚡ تسجيل عضو جديد")
+    st.caption("إدخال بيانات العضو إلى القائمة")
     
     with st.form("add_member_form", clear_on_submit=True):
         col_a, col_b = st.columns(2)
@@ -337,9 +290,9 @@ elif menu == "⚡ [2] تسجيل عضو جديد":
             ["مباشر (بدون دعوة)"] + hosts_list
         )
         
-        custom_ref = st.text_input("أو اكتب اسم مستضيف جديد يدوياً (سيتم حفظه تلقائياً لقائمة المستضيفين):")
+        custom_ref = st.text_input("أو اكتب اسم مستضيف جديد (سيحفظ تلقائياً بالقائمة):")
         
-        submit_btn = st.form_submit_button("EXECUTE_REGISTER // تسجيل العضو")
+        submit_btn = st.form_submit_button("تسجيل العضو الآن")
         
         if submit_btn:
             if nickname and phone:
@@ -356,21 +309,21 @@ elif menu == "⚡ [2] تسجيل عضو جديد":
                 else:
                     st.error(msg)
             else:
-                st.warning("يرجى كتابة اللقب ورقم الهاتف كاملاً!")
+                st.warning("يرجى إدخال اللقب ورقم الهاتف!")
 
-# --- القسم الثالث: قائمة وتأثير المستضيفين ---
-elif menu == "👑 [3] قائمة وتأثير المستضيفين":
-    st.title("👑 HOST TEAMS & LEADERBOARD")
-    st.caption("> استعراض نتائج ودعوات المستضيفين والأعضاء القادمين عن طريقهم")
+# --- القسم الثالث: قائمة الإحالات ---
+elif menu == "👑 [3] قائمة الإحالات":
+    st.title("👑 قائمة المستضيفين والإحالات")
+    st.caption("ترتيب المستضيفين حسب عدد الأعضاء القادمين عن طريقهم")
     
     if not df_ref.empty:
-        st.subheader("> قائمة الترتيب حسب الدعوات")
+        st.subheader("جدول الترتيب")
         df_ref_ranked = df_ref.copy()
-        df_ref_ranked.columns = ['المستضيف (صاحب الدعوة)', 'عدد الأشخاص المضافين']
+        df_ref_ranked.columns = ['المستضيف (صاحب الدعوة)', 'عدد الأعضاء المضافين']
         st.dataframe(df_ref_ranked, use_container_width=True, hide_index=True)
         
         st.write("---")
-        st.subheader("> استعراض أعضاء مستضيف معين")
+        st.subheader("عرض فريق مستضيف معين")
         
         selected_host = st.selectbox("اختر اسم المستضيف:", df_ref['host'].tolist())
         
@@ -378,30 +331,30 @@ elif menu == "👑 [3] قائمة وتأثير المستضيفين":
             invited_members = df_members[df_members['referred_by'] == selected_host]
             
             st.markdown(f"""
-                <div class="red-card">
-                    <h2>👑 المستضيف: {selected_host}</h2>
-                    <p>عدد الأعضاء القادمين عن طريقه: <span class="badge-red">{len(invited_members)} أعضاء</span></p>
+                <div class="modern-card">
+                    <h3>👑 المستضيف: {selected_host}</h3>
+                    <p>عدد الأعضاء القادمين عن طريقه: <span class="badge-soft">{len(invited_members)} أعضاء</span></p>
                 </div>
             """, unsafe_allow_html=True)
             
-            st.write(f"**الأعضاء الذين انضموا عن طريق [{selected_host}]:**")
+            st.write(f"الأعضاء المضافين عن طريق **[{selected_host}]**:")
             st.dataframe(invited_members[['id', 'nickname', 'phone', 'created_at']], use_container_width=True, hide_index=True)
     else:
-        st.info("لا توجد إحالات أو مستضيفين جلبوا أعضاء حتى الآن.")
+        st.info("لا توجد إحالات مسجلة بعد.")
 
-# --- القسم الرابع: إدارة قائمة المستضيفين ---
-elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/حذف)":
-    st.title("⚙️ MANAGE HOSTS LIST")
-    st.caption("> التحكم الكامل بقائمة المستضيفين المعتمدين")
+# --- القسم الرابع: إدارة المستضيفين ---
+elif menu == "⚙️ [4] إدارة المستضيفين":
+    st.title("⚙️ إدارة قائمة المستضيفين")
+    st.caption("إضافة أو حذف مستضيفين معتمدين")
     
     col_h1, col_h2 = st.columns(2)
     
     with col_h1:
-        st.markdown('<div class="red-card">', unsafe_allow_html=True)
+        st.markdown('<div class="modern-card">', unsafe_allow_html=True)
         st.subheader("➕ إضافة مستضيف جديد")
         with st.form("add_host_form", clear_on_submit=True):
-            new_host_name = st.text_input("اسم المستضيف الجديد:")
-            btn_add_h = st.form_submit_button("إضافة المستضيف للقائمة")
+            new_host_name = st.text_input("اسم المستضيف:")
+            btn_add_h = st.form_submit_button("إضافة المستضيف")
             
             if btn_add_h:
                 if new_host_name:
@@ -412,21 +365,21 @@ elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/
                     else:
                         st.error(res_msg)
                 else:
-                    st.warning("اكتب اسم المستضيف أولاً!")
+                    st.warning("يرجى كتابة اسم المستضيف!")
         st.markdown('</div>', unsafe_allow_html=True)
         
     with col_h2:
-        st.markdown('<div class="red-card">', unsafe_allow_html=True)
+        st.markdown('<div class="modern-card">', unsafe_allow_html=True)
         st.subheader("🗑️ حذف مستضيف من القائمة")
         
         if not df_hosts.empty:
-            host_to_del = st.selectbox("اختر المستضيف المراد حذفه:", ["-- اختر --"] + df_hosts['host_name'].tolist())
+            host_to_del = st.selectbox("اختر المستضيف للـحذف:", ["-- اختر --"] + df_hosts['host_name'].tolist())
             
             if host_to_del != "-- اختر --":
                 host_row = df_hosts[df_hosts['host_name'] == host_to_del].iloc[0]
                 st.warning(f"هل أنت تأكد من حذف المستضيف [{host_row['host_name']}]؟")
                 
-                if st.button(f"🔴 تأكيد حذف المستضيف [{host_row['host_name']}]"):
+                if st.button(f"حذف المستضيف [{host_row['host_name']}]"):
                     delete_host_by_id(host_row['id'])
                     st.success(f"تم حذف المستضيف [{host_row['host_name']}] بنجاح!")
                     st.rerun()
@@ -435,13 +388,13 @@ elif menu == "⚙️ [4] إدارة قائمة المستضيفين (إضافة/
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.write("---")
-    st.subheader("> قائمة جميع المستضيفين المعتمدين")
+    st.subheader("قائمة المستضيفين المعتمدين")
     if not df_hosts.empty:
         st.dataframe(df_hosts[['id', 'host_name']], use_container_width=True, hide_index=True)
 
 # --- القسم الخامس: استعلام عن عضو ---
 elif menu == "🔍 [5] استعلام عن عضو":
-    st.title("🔍 SEARCH MEMBER")
+    st.title("🔍 استعلام سليم عن عضو")
     
     if not df_members.empty:
         selected_m = st.selectbox("اختر اللقب للاستعلام:", df_members['nickname'].tolist())
@@ -450,24 +403,24 @@ elif menu == "🔍 [5] استعلام عن عضو":
         clean_num = ''.join(filter(str.isdigit, str(m_info['phone'])))
         
         st.markdown(f"""
-            <div class="red-card">
-                <h3>🆔 MEMBER_PROFILE: {m_info['nickname']}</h3>
-                <p><strong>الرقم:</strong> {m_info['phone']}</p>
+            <div class="modern-card">
+                <h3>👤 العضو: {m_info['nickname']}</h3>
+                <p><strong>رقم الهاتف:</strong> {m_info['phone']}</p>
                 <p><strong>المستضيف (دخل من طرف):</strong> {m_info['referred_by']}</p>
                 <p><strong>تاريخ الانضمام:</strong> {m_info['created_at']}</p>
-                <a class="wa-btn" href="https://wa.me/{clean_num}" target="_blank">📲 تواصل مباشر عبر الواتساب</a>
+                <a class="wa-btn" href="https://wa.me/{clean_num}" target="_blank">📲 فتح محادثة الواتساب المباشرة</a>
             </div>
         """, unsafe_allow_html=True)
     else:
         st.info("القاعدة فارغة حالياً.")
 
 # --- القسم السادس: إدارة السجل وحذف الأعضاء ---
-elif menu == "📂 [6] إدارة السجل وحذف الأعضاء":
-    st.title("📂 DATABASE MANAGEMENT")
-    st.caption("> فلترة السجل والتأكيد الصارم لحذف الأعضاء")
+elif menu == "📂 [6] إدارة السجل والحذف":
+    st.title("📂 إدارة السجل وحذف الأعضاء")
+    st.caption("البحث في القواعد والحذف النهائي للأعضاء")
     
     if not df_members.empty:
-        search_kw = st.text_input("🔍 فلترة السجل بالاسم، الرقم، أو الداعي:")
+        search_kw = st.text_input("🔍 بحث وفلترة بالسجل:")
         
         display_df = df_members.copy()
         if search_kw:
@@ -480,19 +433,20 @@ elif menu == "📂 [6] إدارة السجل وحذف الأعضاء":
         st.dataframe(display_df[['id', 'nickname', 'phone', 'referred_by', 'created_at']], use_container_width=True, hide_index=True)
         
         st.write("---")
-        st.subheader("🗑️ قسم حذف الأعضاء (حذف مباشر)")
+        st.subheader("🗑️ حذف عضو من النظام")
         
         member_list = ["-- اختر العضو --"] + df_members['nickname'].tolist()
-        selected_to_delete = st.selectbox("اختر العضو المراد مسحه تماماً من البيانات:", member_list)
+        selected_to_delete = st.selectbox("اختر العضو المراد مسحه:", member_list)
         
         if selected_to_delete != "-- اختر العضو --":
             target_data = df_members[df_members['nickname'] == selected_to_delete].iloc[0]
             
-            st.error(f"⚠️ تحذير: أنت على وشك حذف العضو [{target_data['nickname']}] (ID: #{target_data['id']})")
+            st.error(f"تنبيه: أنت على وشك مسح العضو [{target_data['nickname']}] (ID: #{target_data['id']})")
             
-            if st.button(f"🔴 تأكيد حذف العضو [{target_data['nickname']}] الآن"):
+            if st.button(f"تأكيد حذف العضو [{target_data['nickname']}] الآن"):
                 delete_member_by_id(target_data['id'])
-                st.success(f"تم حذف العضو [{target_data['nickname']}] بنجاح من قاعدة البيانات!")
+                st.success(f"تم مسح العضو [{target_data['nickname']}] بنجاح!")
                 st.rerun()
     else:
-        st.info("لا يوجد أعضاء في قاعدة البيانات.")
+        st.info("لا يوجد أعضاء مسجلين.")
+                
