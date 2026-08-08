@@ -82,7 +82,7 @@ def get_all_members():
     if not supabase:
         return pd.DataFrame(), False
     try:
-        res = supabase.table("members").select("*").execute()
+        res = supabase.table("work_members").select("*").execute()
         data = res.data if res.data else []
         if data:
             df = pd.DataFrame(data)
@@ -109,7 +109,7 @@ def add_member_to_supabase(nickname, phone, referred_by, received_by):
             "received_by": received_by.strip() if received_by else "غير محدد",
             "date": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
         }
-        supabase.table("members").insert(new_entry).execute()
+        supabase.table("work_members").insert(new_entry).execute()
         return True, f"تم تسجيل [{nickname}] بنجاح."
     except Exception as e:
         return False, f"خطأ في التسجيل: {e}"
@@ -117,7 +117,7 @@ def add_member_to_supabase(nickname, phone, referred_by, received_by):
 def delete_member_from_supabase(phone):
     if supabase:
         try:
-            supabase.table("members").delete().eq("phone", str(phone)).execute()
+            supabase.table("work_members").delete().eq("phone", str(phone)).execute()
             return True
         except:
             return False
@@ -278,4 +278,3 @@ with tab_settings:
                     st.error("حدث خطأ أثناء الحذف.")
     else:
         st.info("السجل فارغ.")
-        
