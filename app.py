@@ -1,139 +1,128 @@
-import sqlite3
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import re
+from supabase import create_client, Client
 
 # ---------------------------------------------------------
-# 1. إعداد الصفحة مع إخفاء الشريط العلوي وأزرار GitHub
+# 1. إعداد الصفحة وتعديل الـ CSS لإخفاء GitHub وإبقاء السهم
 # ---------------------------------------------------------
 st.set_page_config(page_title="Work System | Aurther", page_icon="⚡", layout="wide")
 
 st.markdown("""
 <style>
-    /* إخفاء الشريط العلوي وأزرار GitHub بالكامل */
-    [data-testid="stHeader"] {
+    /* إخفاء زر GitHub والخيارات الإضافية فقط من الشريط العلوي مع إبقاء زر السهم شغال */
+    [data-testid="stActionButtonElements"], 
+    [data-testid="stAppDeployButton"], 
+    #MainMenu {
         display: none !important;
     }
-    /* إخفاء الحقوق والعلامات المائية بالأسفل */
+    
+    /* إخفاء الحقوق والعلامة المائية بالأسفل */
     footer {
         display: none !important;
     }
     .viewerBadge_container__1QSob, 
-    [data-testid="stStatusWidget"],
-    #MainMenu {
+    [data-testid="stStatusWidget"] {
         display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------------------------------------------------
+# 2. إعداد الاتصال بـ Supabase
+# ---------------------------------------------------------
+SUPABASE_URL = "https://igskxyazuomofeqvkwcy.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlnc2t4eWF6dW9tb2ZlcXZrd2N5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxNTkyNTksImV4cCI6MjEwMTczNTI1OX0.HadeqymBYWETFaauKYFNtlD-ahg3GfoOGoH0XKu_mWg"
+
+@st.cache_resource
+def init_supabase() -> Client:
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except:
+        return None
+
+supabase = init_supabase()
 
 # ---------------------------------------------------------
-# 2. إدارة قاعدة البيانات (تحديث الجدول مع حقل الاستقبال)
+# 3. دوال الجلب والحفظ المباشر
 # ---------------------------------------------------------
-def init_db():
-    conn = sqlite3.connect("work_system.db")
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS members (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nickname TEXT UNIQUE NOT NULL,
-            phone TEXT NOT NULL,
-            referred_by TEXT DEFAULT 'مباشر (بدون دعوة)',
-            received_by TEXT DEFAULT 'غير محدد',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS hosts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            host_name TEXT UNIQUE NOT NULL
-        )
-    """)
-    try:
-        c.execute("ALTER TABLE members ADD COLUMN received_by TEXT DEFAULT 'غير محدد'")
-    except sqlite3.OperationalError:
-        pass
-
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# --- دوال الحذف والإضافة ---
-def delete_member_by_id(member_id):
-    conn = sqlite3.connect("work_system.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM members WHERE id = ?", (int(member_id),))
-    conn.commit()
-    conn.close()
-
-def delete_host_by_id(host_id):
-    conn = sqlite3.connect("work_system.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM hosts WHERE id = ?", (int(host_id),))
-    conn.commit()
-    conn.close()
-
-def add_host(host_name):
-    host_name = host_name.strip()
-    if not host_name or host_name == "مباشر (بدون دعوة)":
-        return False, "الاسم غير صالح!"
-
-    conn = sqlite3.connect("work_system.db")
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO hosts (host_name) VALUES (?)", (host_name,))
-        conn.commit()
-        conn.close()
-        return True, f"تمت إضافة [{host_name}] بنجاح."
-    except sqlite3.IntegrityError:
-        conn.close()
-        return False, f"المستضيف [{host_name}] موجود مسبقاً."
-
-def add_member(nickname, phone, referred_by, received_by):
-    conn = sqlite3.connect("work_system.db")
-    c = conn.cursor()
-    try:
-        c.execute("""INSERT INTO members (nickname, phone, referred_by, received_by) 
-                 VALUES (?, ?, ?, ?)""", 
-                 (nickname, phone, referred_by if referred_by else "مباشر (بدون دعوة)", received_by if received_by else "غير محدد"))
-        conn.commit()
-        conn.close()
-        return True, f"تم تسجيل [{nickname}] بنجاح."
-    except sqlite3.IntegrityError:
-        conn.close()
-        return False, f"اللقب [{nickname}] مسجل مسبقاً."
-
-def get_all_hosts():
-    conn = sqlite3.connect("work_system.db")
-    df = pd.read_sql_query("SELECT * FROM hosts ORDER BY host_name ASC", conn)
-    conn.close()
-    return df
-
 def get_all_members():
-    conn = sqlite3.connect("work_system.db")
-    df = pd.read_sql_query("SELECT * FROM members ORDER BY id DESC", conn)
-    conn.close()
-    return df
+    if not supabase:
+        return pd.DataFrame(), False
+    try:
+        res = supabase.table("members").select("*").execute()
+        data = res.data if res.data else []
+        if data:
+            df = pd.DataFrame(data)
+            if "referrer" in df.columns:
+                df["referred_by"] = df["referrer"]
+            if "received_by" not in df.columns:
+                df["received_by"] = "غير محدد"
+            if "date" in df.columns:
+                df["created_at"] = df["date"]
+            return df, True
+        return pd.DataFrame(columns=["id", "nickname", "phone", "referred_by", "received_by", "created_at"]), True
+    except Exception:
+        return pd.DataFrame(), False
 
-def get_referral_stats():
-    conn = sqlite3.connect("work_system.db")
-    query = """
-        SELECT referred_by as 'host', COUNT(*) as 'count'
-        FROM members
-        WHERE referred_by != 'مباشر (بدون دعوة)' AND referred_by != ''
-        GROUP BY referred_by
-        ORDER BY count DESC
-    """
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    return df
+def add_member_to_supabase(nickname, phone, referred_by, received_by):
+    if not supabase:
+        return False, "غير متصل بقاعدة البيانات!"
+    try:
+        clean_p = re.sub(r'\D', '', str(phone).strip())
+        new_entry = {
+            "nickname": nickname.strip(),
+            "phone": clean_p,
+            "referrer": referred_by.strip() if referred_by else "مباشر (بدون دعوة)",
+            "received_by": received_by.strip() if received_by else "غير محدد",
+            "date": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        supabase.table("members").insert(new_entry).execute()
+        return True, f"تم تسجيل [{nickname}] بنجاح."
+    except Exception as e:
+        return False, f"خطأ في التسجيل: {e}"
 
+def delete_member_from_supabase(phone):
+    if supabase:
+        try:
+            supabase.table("members").delete().eq("phone", str(phone)).execute()
+            return True
+        except:
+            return False
+    return False
+
+# جلب البيانات وحالة الاتصال
+df_members, is_online = get_all_members()
+
+# قائمة المستضيفين تلقائياً من الإحالات
+if not df_members.empty and "referred_by" in df_members.columns:
+    hosts_list = [h for h in df_members["referred_by"].dropna().unique().tolist() if h and h != "مباشر (بدون دعوة)"]
+else:
+    hosts_list = []
+
+# إحصائيات المستضيفين (النقاط)
+if not df_members.empty and "referred_by" in df_members.columns:
+    valid_m = df_members[(df_members["referred_by"] != "مباشر (بدون دعوة)") & (df_members["referred_by"] != "")]
+    if not valid_m.empty:
+        df_ref = valid_m["referred_by"].value_counts().reset_index()
+        df_ref.columns = ["host", "count"]
+    else:
+        df_ref = pd.DataFrame(columns=["host", "count"])
+else:
+    df_ref = pd.DataFrame(columns=["host", "count"])
 
 # ---------------------------------------------------------
-# 3. القائمة الجانبية
+# 4. القائمة الجانبية ومؤشر الاتصال
 # ---------------------------------------------------------
 st.sidebar.title("⚡ Work System")
 st.sidebar.markdown("**👑 Founder:** Aurther")
+
+# مؤشر حالة الاتصال الأونلاين/أوفلاين
+if is_online:
+    st.sidebar.markdown("<div style='color: #25d366; font-weight: bold;'>🟢 متصل بقاعدة البيانات (Online)</div>", unsafe_allow_html=True)
+else:
+    st.sidebar.markdown("<div style='color: #ff4d4d; font-weight: bold;'>🔴 غير متصل (Offline)</div>", unsafe_allow_html=True)
+
 st.sidebar.divider()
 
 menu = st.sidebar.radio(
@@ -147,12 +136,8 @@ menu = st.sidebar.radio(
     ],
 )
 
-df_members = get_all_members()
-df_hosts = get_all_hosts()
-df_ref = get_referral_stats()
-
 # ---------------------------------------------------------
-# 4. أقسام الصفحة
+# 5. أقسام الصفحة
 # ---------------------------------------------------------
 
 if menu == "📊 لوحة التحكم":
@@ -161,7 +146,7 @@ if menu == "📊 لوحة التحكم":
 
     col1, col2, col3 = st.columns(3)
     col1.metric("الأعضاء", len(df_members))
-    col2.metric("المستضيفين", len(df_hosts))
+    col2.metric("المستضيفين", len(hosts_list))
 
     top_h = df_ref.iloc[0]["host"] if not df_ref.empty else "لا يوجد"
     top_c = int(df_ref.iloc[0]["count"]) if not df_ref.empty else 0
@@ -170,14 +155,10 @@ if menu == "📊 لوحة التحكم":
     st.divider()
     st.subheader("آخر المنضمين")
     if not df_members.empty:
+        cols_to_show = ["nickname", "phone", "referred_by", "received_by", "created_at"]
+        existing_cols = [c for c in cols_to_show if c in df_members.columns]
         st.dataframe(
-            df_members[[
-                "nickname",
-                "phone",
-                "referred_by",
-                "received_by",
-                "created_at",
-            ]].rename(columns={
+            df_members[existing_cols].rename(columns={
                 "nickname": "اللقب",
                 "phone": "الرقم",
                 "referred_by": "صاحب الدعوة",
@@ -192,8 +173,6 @@ if menu == "📊 لوحة التحكم":
 
 elif menu == "➕ إضافة عضو":
     st.header("➕ تسجيل عضو جديد")
-
-    hosts_list = df_hosts["host_name"].tolist() if not df_hosts.empty else []
 
     with st.form("add_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -215,21 +194,10 @@ elif menu == "➕ إضافة عضو":
 
         if st.form_submit_button("تسجيل العضو"):
             if nickname and phone:
-                final_host = (
-                    custom_host.strip() if custom_host.strip() else selected_host
-                )
-                if custom_host.strip():
-                    add_host(final_host)
+                final_host = custom_host.strip() if custom_host.strip() else selected_host
+                final_receiver = custom_receiver.strip() if custom_receiver.strip() else selected_receiver
 
-                final_receiver = (
-                    custom_receiver.strip()
-                    if custom_receiver.strip()
-                    else selected_receiver
-                )
-                if custom_receiver.strip():
-                    add_host(final_receiver)
-
-                success, msg = add_member(
+                success, msg = add_member_to_supabase(
                     nickname.strip(), phone.strip(), final_host, final_receiver
                 )
                 if success:
@@ -248,9 +216,7 @@ elif menu == "👥 المستضيفين":
     with tab1:
         if not df_ref.empty:
             st.dataframe(
-                df_ref.rename(
-                    columns={"host": "المستضيف", "count": "عدد الأعضاء"}
-                ),
+                df_ref.rename(columns={"host": "المستضيف", "count": "عدد الأعضاء"}),
                 use_container_width=True,
                 hide_index=True,
             )
@@ -263,13 +229,10 @@ elif menu == "👥 المستضيفين":
                 "اختر المستضيف لعرض أعضائه:", df_ref["host"].tolist()
             )
             invited = df_members[df_members["referred_by"] == host_choice]
+            cols_to_show = ["nickname", "phone", "received_by", "created_at"]
+            existing_cols = [c for c in cols_to_show if c in invited.columns]
             st.dataframe(
-                invited[[
-                    "nickname",
-                    "phone",
-                    "received_by",
-                    "created_at",
-                ]].rename(columns={
+                invited[existing_cols].rename(columns={
                     "nickname": "اللقب",
                     "phone": "الرقم",
                     "received_by": "تم الاستقبال من طرف",
@@ -293,12 +256,12 @@ elif menu == "🔍 استعلام":
         st.success(f"""
         📌 **بيانات العضو:** [{target_info['nickname']}]  
         📞 **الرقم:** {target_info['phone']}  
-        👑 **صاحب الدعوة (المستضيف):** {target_info['referred_by']}  
+        👑 **صاحب الدعوة (المستضيف):** {target_info.get('referred_by', 'مباشر')}  
         🤝 **تم الاستقبال من طرف:** {target_info.get('received_by', 'غير محدد')}  
-        📅 **تاريخ الانضمام:** {target_info['created_at']}
+        📅 **تاريخ الانضمام:** {target_info.get('created_at', '')}
         """)
 
-        clean_num = "".join(filter(str.isdigit, str(target_info["phone"])))
+        clean_num = re.sub(r"\D", "", str(target_info["phone"]))
         st.markdown(f"[📲 تواصل مباشر عبر الواتساب](https://wa.me/{clean_num})")
     else:
         st.info("لا يوجد أعضاء في قاعدة البيانات.")
@@ -306,52 +269,19 @@ elif menu == "🔍 استعلام":
 elif menu == "⚙️ السجل والإعدادات":
     st.header("⚙️ إدارة السجل والنظام")
 
-    tab_del_member, tab_del_host = st.tabs(
-        ["🗑️ حذف عضو", "🗑️ إدارة قائمة المستضيفين/الاستقبال"]
-    )
-
-    with tab_del_member:
-        st.subheader("حذف عضو من السجل")
-        if not df_members.empty:
-            member_to_del = st.selectbox(
-                "اختر العضو للحذف:", ["-- اختر --"] + df_members["nickname"].tolist()
-            )
-            if member_to_del != "-- اختر --":
-                target_m = df_members[df_members["nickname"] == member_to_del].iloc[0]
-                if st.button("تأكيد الحذف النهائي", type="primary"):
-                    delete_member_by_id(target_m["id"])
-                    st.success(f"تم حذف {member_to_del} بنجاح.")
+    st.subheader("🗑️ حذف عضو من السجل الموحد")
+    if not df_members.empty:
+        member_to_del = st.selectbox(
+            "اختر العضو للحذف (سيحذف من الاستقبال والورك فوراً):", ["-- اختر --"] + df_members["nickname"].tolist()
+        )
+        if member_to_del != "-- اختر --":
+            target_m = df_members[df_members["nickname"] == member_to_del].iloc[0]
+            if st.button("تأكيد الحذف النهائي", type="primary"):
+                if delete_member_from_supabase(target_m["phone"]):
+                    st.success(f"تم حذف {member_to_del} بنجاح من النظامين.")
                     st.rerun()
-        else:
-            st.info("السجل فارغ.")
-
-    with tab_del_host:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("إضافة اسم للقائمة")
-            with st.form("add_h_form", clear_on_submit=True):
-                new_h = st.text_input("الاسم (مستضيف / استقبال):")
-                if st.form_submit_button("إضافة"):
-                    if new_h:
-                        ok, msg = add_host(new_h)
-                        if ok:
-                            st.success(msg)
-                            st.rerun()
-                        else:
-                            st.error(msg)
-
-        with col2:
-            st.subheader("حذف اسم من القائمة")
-            if not df_hosts.empty:
-                host_to_del = st.selectbox(
-                    "اختر الاسم للحذف:", ["-- اختر --"] + df_hosts["host_name"].tolist()
-                )
-                if host_to_del != "-- اختر --":
-                    target_h = df_hosts[df_hosts["host_name"] == host_to_del].iloc[0]
-                    if st.button("حذف الاسم", type="primary"):
-                        delete_host_by_id(target_h["id"])
-                        st.success(f"تم حذف {host_to_del} بنجاح.")
-                        st.rerun()
-            else:
-                st.info("القائمة فارغة.")
-        
+                else:
+                    st.error("حدث خطأ أثناء الحذف.")
+    else:
+        st.info("السجل فارغ.")
+            
