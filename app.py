@@ -2,9 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 from supabase import create_client, Client
-import base64
 import datetime
-from io import BytesIO
 
 # مكتبات الـ PDF واللغة العربية
 from fpdf import FPDF
@@ -17,7 +15,7 @@ from bidi.algorithm import get_display
 st.set_page_config(page_title="KONUHA | Work System", page_icon="🍃", layout="wide")
 
 # ---------------------------------------------------------
-# 2. تصميم الـ UI/UX (CSS خيالي، تأثيرات زجاجية، وخطوط)
+# 2. تصميم الـ UI/UX
 # ---------------------------------------------------------
 st.markdown("""
 <style>
@@ -30,7 +28,7 @@ st.markdown("""
     /* إخفاء شريط Streamlit */
     [data-testid="stHeader"], footer, #MainMenu { display: none !important; }
     
-    /* خلفية الموقع داكنة مع تأثيرات */
+    /* خلفية الموقع */
     .stApp {
         background-color: #0b0f19;
         background-image: radial-gradient(circle at 15% 50%, rgba(20, 184, 166, 0.08), transparent 25%),
@@ -38,7 +36,7 @@ st.markdown("""
         color: #e2e8f0;
     }
     
-    /* تصميم الزجاج الشفاف (Glassmorphism) للكروت */
+    /* تصميم الزجاج الشفاف */
     .glass-card {
         background: rgba(17, 24, 39, 0.7);
         backdrop-filter: blur(12px);
@@ -49,14 +47,9 @@ st.markdown("""
         text-align: center;
         margin-bottom: 25px;
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        transition: transform 0.3s ease;
-    }
-    .glass-card:hover {
-        transform: translateY(-5px);
-        border: 1px solid rgba(16, 185, 129, 0.4);
     }
     
-    /* اسم النقابة النيون */
+    /* اسم النقابة */
     .neon-text {
         font-size: 42px;
         font-weight: 900;
@@ -79,12 +72,10 @@ st.markdown("""
         color: #94a3b8;
         border-radius: 10px;
         font-weight: bold;
-        transition: 0.3s;
     }
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #10b981, #059669) !important;
         color: white !important;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -92,7 +83,6 @@ st.markdown("""
 # ---------------------------------------------------------
 # 3. نظام الحماية بباسورد (Login System)
 # ---------------------------------------------------------
-# الباسورد الخاص بالإداريين (تقدر تغيره)
 ADMIN_PASSWORD = "123" 
 
 if 'authenticated' not in st.session_state:
@@ -110,25 +100,26 @@ if not st.session_state['authenticated']:
                 st.rerun()
             else:
                 st.error("كلمة المرور غير صحيحة!")
-    st.stop() # يوقف الكود هنا إذا ما مسجل دخول
+    st.stop()
 
 # ---------------------------------------------------------
 # 4. إعداد الاتصال بقاعدة البيانات
 # ---------------------------------------------------------
 SUPABASE_URL = "https://igskxyazuomofeqvkwcy.supabase.co"
-SUPABASE_KEY = "YOUR_SUPABASE_KEY_HERE" # حط المفتاح مالك هنا
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlnc2t4eWF6dW9tb2ZlcXZrd2N5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxNTkyNTksImV4cCI6MjEwMTczNTI1OX0.HadeqymBYWETFaauKYFNtlD-ahg3GfoOGoH0XKu_mWg"
 
 @st.cache_resource
 def init_supabase() -> Client:
     try:
         return create_client(SUPABASE_URL, SUPABASE_KEY)
-    except:
+    except Exception:
         return None
 
 supabase = init_supabase()
 
 def get_all_members():
-    if not supabase: return pd.DataFrame(), False
+    if not supabase: 
+        return pd.DataFrame(), False
     try:
         res = supabase.table("work_members").select("*").execute()
         data = res.data if res.data else []
@@ -137,15 +128,16 @@ def get_all_members():
             df['referred_by'] = df.get('referrer', 'مباشر')
             df['received_by'] = df.get('received_by', 'غير محدد')
             df['created_at'] = df.get('date', '')
-            # ترتيب الأسماء أبجدياً
             if "nickname" in df.columns:
                 df = df.sort_values(by="nickname", ascending=True)
             return df, True
-        return pd.DataFrame(), True
-    except:
+        return pd.DataFrame(columns=["nickname", "phone", "referred_by", "received_by", "created_at"]), True
+    except Exception:
         return pd.DataFrame(), False
 
 def add_member(nickname, phone, referred_by, received_by):
+    if not supabase:
+        return False, "غير متصل بقاعدة البيانات!"
     try:
         clean_p = re.sub(r'\D', '', str(phone).strip())
         new_entry = {
@@ -153,49 +145,47 @@ def add_member(nickname, phone, referred_by, received_by):
             "phone": clean_p,
             "referrer": referred_by.strip() if referred_by else "مباشر",
             "received_by": received_by.strip() if received_by else "غير محدد",
-            "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+            "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         supabase.table("work_members").insert(new_entry).execute()
-        return True
-    except:
-        return False
+        return True, "تم التسجيل بنجاح"
+    except Exception as e:
+        return False, f"خطأ من سوبابيس: {e}"
 
 df_members, is_online = get_all_members()
 
 # ---------------------------------------------------------
-# 5. الهيدر الرئيسي للموقع (بعد الدخول)
+# 5. الهيدر الرئيسي ومؤشر الحالة
 # ---------------------------------------------------------
-status_icon = "🟢" if is_online else "🔴"
+status_badge = "🟢 متصل بقاعدة البيانات (Online)" if is_online else "🔴 غير متصل بقاعدة البيانات (Offline)"
+status_color = "#10b981" if is_online else "#ef4444"
+
 st.markdown(f"""
 <div class="glass-card">
     <h1 class="neon-text">🍃 KONUHA</h1>
     <p style="color: #94a3b8; font-size: 18px; margin-top: 10px;">Work System & Management</p>
-    <div style="margin-top:15px; font-size:14px; color:#10b981;">{status_icon} Database Connected</div>
+    <div style="margin-top:15px; font-size:14px; color:{status_color}; font-weight: bold;">{status_badge}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. استخراج ملف PDF (بترتيب أبجدي)
+# 6. استخراج ملف PDF
 # ---------------------------------------------------------
 def create_pdf(dataframe):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
-    
-    # يجب توفير ملف خط اسمه cairo.ttf في نفس مجلد السكربت ليدعم العربي
     try:
         pdf.add_font('Cairo', '', 'cairo.ttf', uni=True)
         pdf.set_font('Cairo', '', 14)
-    except:
-        pdf.set_font('Arial', '', 12) # بديل إذا ماكو ملف خط
+    except Exception:
+        pdf.set_font('Arial', '', 12)
 
-    # العنوان
     title = "سجل ألقاب نقابة KONUHA"
     reshaped_title = arabic_reshaper.reshape(title)
     bidi_title = get_display(reshaped_title)
     pdf.cell(200, 10, txt=bidi_title, ln=True, align='C')
     pdf.ln(10)
 
-    # إضافة الألقاب
     for index, row in dataframe.iterrows():
         text = f"اللقب: {row['nickname']} | المشرف: {row['referred_by']}"
         reshaped_text = arabic_reshaper.reshape(text)
@@ -232,11 +222,12 @@ with tab_add:
         
         if st.form_submit_button("➕ تسجيل العضو"):
             if nick and phone:
-                if add_member(nick, phone, ref, rec):
+                success, msg = add_member(nick, phone, ref, rec)
+                if success:
                     st.toast('✅ تم تسجيل العضو بنجاح!', icon='🎉')
                     st.rerun()
                 else:
-                    st.error("حدث خطأ!")
+                    st.error(msg)
             else:
                 st.toast('⚠️ يرجى ملء اللقب والرقم', icon='⚠️')
 
