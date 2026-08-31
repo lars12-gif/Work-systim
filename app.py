@@ -2,69 +2,121 @@ import streamlit as st
 import pandas as pd
 import re
 from supabase import create_client, Client
+import base64
+import datetime
+from io import BytesIO
+
+# مكتبات الـ PDF واللغة العربية
+from fpdf import FPDF
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 # ---------------------------------------------------------
-# 1. إعداد الصفحة وإخفاء الهيدر بالكامل (إخفاء الأزرار والسهم)
+# 1. إعداد الصفحة الأساسي
 # ---------------------------------------------------------
-st.set_page_config(page_title="Work System | Aurther", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="KONUHA | Work System", page_icon="🍃", layout="wide")
 
+# ---------------------------------------------------------
+# 2. تصميم الـ UI/UX (CSS خيالي، تأثيرات زجاجية، وخطوط)
+# ---------------------------------------------------------
 st.markdown("""
 <style>
-    /* إخفاء الشريط العلوي بالكامل دون استثناء (حذف السهم وأزرار GitHub والشير) */
-    [data-testid="stHeader"] {
-        display: none !important;
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+    
+    * {
+        font-family: 'Cairo', sans-serif !important;
     }
-    footer {
-        display: none !important;
-    }
-    .viewerBadge_container__1QSob, 
-    [data-testid="stStatusWidget"],
-    #MainMenu {
-        display: none !important;
+
+    /* إخفاء شريط Streamlit */
+    [data-testid="stHeader"], footer, #MainMenu { display: none !important; }
+    
+    /* خلفية الموقع داكنة مع تأثيرات */
+    .stApp {
+        background-color: #0b0f19;
+        background-image: radial-gradient(circle at 15% 50%, rgba(20, 184, 166, 0.08), transparent 25%),
+                          radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 25%);
+        color: #e2e8f0;
     }
     
-    /* ستايل كروت العرض والتصميم العصري */
-    .stApp {
-        background-color: #0d1117;
-        color: #c9d1d9;
-    }
-    .header-card {
-        background: linear-gradient(135deg, #161b22, #21262d);
-        border: 1px solid #30363d;
-        border-radius: 16px;
-        padding: 20px;
+    /* تصميم الزجاج الشفاف (Glassmorphism) للكروت */
+    .glass-card {
+        background: rgba(17, 24, 39, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 30px;
         text-align: center;
         margin-bottom: 25px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        transition: transform 0.3s ease;
+    }
+    .glass-card:hover {
+        transform: translateY(-5px);
+        border: 1px solid rgba(16, 185, 129, 0.4);
     }
     
-    /* تحسين شكل التبويبات العلوية البديلة للقائمة */
+    /* اسم النقابة النيون */
+    .neon-text {
+        font-size: 42px;
+        font-weight: 900;
+        color: #fff;
+        text-shadow: 0 0 10px #10b981, 0 0 20px #10b981, 0 0 40px #047857;
+        margin-bottom: 0;
+        letter-spacing: 2px;
+    }
+    
+    /* التبويبات */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #161b22;
-        padding: 8px;
-        border-radius: 12px;
-        border: 1px solid #30363d;
+        gap: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 10px;
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
     }
     .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        white-space: pre-wrap;
-        border-radius: 8px;
-        color: #8b949e;
+        background: transparent;
+        color: #94a3b8;
+        border-radius: 10px;
         font-weight: bold;
+        transition: 0.3s;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #238636 !important;
-        color: #ffffff !important;
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. إعداد الاتصال بـ Supabase
+# 3. نظام الحماية بباسورد (Login System)
+# ---------------------------------------------------------
+# الباسورد الخاص بالإداريين (تقدر تغيره)
+ADMIN_PASSWORD = "123" 
+
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+if not st.session_state['authenticated']:
+    st.markdown('<div class="glass-card"><h1 class="neon-text">KONUHA</h1><p>بوابة الدخول للإدارة</p></div>', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        pwd = st.text_input("كلمة المرور 🔒:", type="password")
+        if st.button("تسجيل الدخول", use_container_width=True):
+            if pwd == ADMIN_PASSWORD:
+                st.session_state['authenticated'] = True
+                st.rerun()
+            else:
+                st.error("كلمة المرور غير صحيحة!")
+    st.stop() # يوقف الكود هنا إذا ما مسجل دخول
+
+# ---------------------------------------------------------
+# 4. إعداد الاتصال بقاعدة البيانات
 # ---------------------------------------------------------
 SUPABASE_URL = "https://igskxyazuomofeqvkwcy.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlnc2t4eWF6dW9tb2ZlcXZrd2N5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxNTkyNTksImV4cCI6MjEwMTczNTI1OX0.HadeqymBYWETFaauKYFNtlD-ahg3GfoOGoH0XKu_mWg"
+SUPABASE_KEY = "YOUR_SUPABASE_KEY_HERE" # حط المفتاح مالك هنا
 
 @st.cache_resource
 def init_supabase() -> Client:
@@ -75,206 +127,153 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# ---------------------------------------------------------
-# 3. جلب البيانات وحالة الاتصال
-# ---------------------------------------------------------
 def get_all_members():
-    if not supabase:
-        return pd.DataFrame(), False
+    if not supabase: return pd.DataFrame(), False
     try:
         res = supabase.table("work_members").select("*").execute()
         data = res.data if res.data else []
         if data:
             df = pd.DataFrame(data)
-            if "referrer" in df.columns:
-                df["referred_by"] = df["referrer"]
-            if "received_by" not in df.columns:
-                df["received_by"] = "غير محدد"
-            if "date" in df.columns:
-                df["created_at"] = df["date"]
+            df['referred_by'] = df.get('referrer', 'مباشر')
+            df['received_by'] = df.get('received_by', 'غير محدد')
+            df['created_at'] = df.get('date', '')
+            # ترتيب الأسماء أبجدياً
+            if "nickname" in df.columns:
+                df = df.sort_values(by="nickname", ascending=True)
             return df, True
-        return pd.DataFrame(columns=["id", "nickname", "phone", "referred_by", "received_by", "created_at"]), True
-    except Exception:
+        return pd.DataFrame(), True
+    except:
         return pd.DataFrame(), False
 
-def add_member_to_supabase(nickname, phone, referred_by, received_by):
-    if not supabase:
-        return False, "غير متصل بقاعدة البيانات!"
+def add_member(nickname, phone, referred_by, received_by):
     try:
         clean_p = re.sub(r'\D', '', str(phone).strip())
         new_entry = {
             "nickname": nickname.strip(),
             "phone": clean_p,
-            "referrer": referred_by.strip() if referred_by else "مباشر (بدون دعوة)",
+            "referrer": referred_by.strip() if referred_by else "مباشر",
             "received_by": received_by.strip() if received_by else "غير محدد",
-            "date": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+            "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         }
         supabase.table("work_members").insert(new_entry).execute()
-        return True, f"تم تسجيل [{nickname}] بنجاح."
-    except Exception as e:
-        return False, f"خطأ في التسجيل: {e}"
-
-def delete_member_from_supabase(phone):
-    if supabase:
-        try:
-            supabase.table("work_members").delete().eq("phone", str(phone)).execute()
-            return True
-        except:
-            return False
-    return False
+        return True
+    except:
+        return False
 
 df_members, is_online = get_all_members()
 
-# قائمة المستضيفين والإحصائيات
-if not df_members.empty and "referred_by" in df_members.columns:
-    hosts_list = [h for h in df_members["referred_by"].dropna().unique().tolist() if h and h != "مباشر (بدون دعوة)"]
-    valid_m = df_members[(df_members["referred_by"] != "مباشر (بدون دعوة)") & (df_members["referred_by"] != "")]
-    if not valid_m.empty:
-        df_ref = valid_m["referred_by"].value_counts().reset_index()
-        df_ref.columns = ["host", "count"]
-    else:
-        df_ref = pd.DataFrame(columns=["host", "count"])
-else:
-    hosts_list = []
-    df_ref = pd.DataFrame(columns=["host", "count"])
-
 # ---------------------------------------------------------
-# 4. كارت العنوان الرئيسي ومؤشر الحالة
+# 5. الهيدر الرئيسي للموقع (بعد الدخول)
 # ---------------------------------------------------------
-status_badge = "🟢 متصل بقاعدة البيانات (Online)" if is_online else "🔴 غير متصل (Offline)"
-status_color = "#25d366" if is_online else "#ff4d4d"
-
+status_icon = "🟢" if is_online else "🔴"
 st.markdown(f"""
-<div class="header-card">
-    <h1 style="color: #58a6ff; margin: 0; font-size: 28px;">⚡ WORK SYSTEM</h1>
-    <p style="color: #8b949e; margin: 5px 0 10px 0;">👑 Founder: Aurther</p>
-    <span style="background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 20px; color: {status_color}; font-weight: bold; font-size: 13px;">
-        {status_badge}
-    </span>
+<div class="glass-card">
+    <h1 class="neon-text">🍃 KONUHA</h1>
+    <p style="color: #94a3b8; font-size: 18px; margin-top: 10px;">Work System & Management</p>
+    <div style="margin-top:15px; font-size:14px; color:#10b981;">{status_icon} Database Connected</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 5. التبويبات العلوية البديلة للقائمة الجانبية
+# 6. استخراج ملف PDF (بترتيب أبجدي)
 # ---------------------------------------------------------
-tab_dash, tab_add, tab_hosts, tab_search, tab_settings = st.tabs([
-    "📊 لوحة التحكم",
-    "➕ إضافة عضو",
-    "👥 المستضيفين",
-    "🔍 استعلام",
-    "⚙️ السجل والإعدادات"
+def create_pdf(dataframe):
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.add_page()
+    
+    # يجب توفير ملف خط اسمه cairo.ttf في نفس مجلد السكربت ليدعم العربي
+    try:
+        pdf.add_font('Cairo', '', 'cairo.ttf', uni=True)
+        pdf.set_font('Cairo', '', 14)
+    except:
+        pdf.set_font('Arial', '', 12) # بديل إذا ماكو ملف خط
+
+    # العنوان
+    title = "سجل ألقاب نقابة KONUHA"
+    reshaped_title = arabic_reshaper.reshape(title)
+    bidi_title = get_display(reshaped_title)
+    pdf.cell(200, 10, txt=bidi_title, ln=True, align='C')
+    pdf.ln(10)
+
+    # إضافة الألقاب
+    for index, row in dataframe.iterrows():
+        text = f"اللقب: {row['nickname']} | المشرف: {row['referred_by']}"
+        reshaped_text = arabic_reshaper.reshape(text)
+        bidi_text = get_display(reshaped_text)
+        pdf.cell(200, 10, txt=bidi_text, ln=True, align='R')
+    
+    return pdf.output(dest='S').encode('latin1')
+
+# ---------------------------------------------------------
+# 7. التبويبات الرئيسية
+# ---------------------------------------------------------
+tab_dash, tab_add, tab_hosts, tab_search, tab_export = st.tabs([
+    "📊 لوحة القيادة", "➕ إضافة عضو", "👥 المستضيفين", "🔍 استعلام الألقاب", "📥 استخراج PDF"
 ])
 
-# --- 1. لوحة التحكم ---
 with tab_dash:
-    st.subheader("📊 لوحة التحكم والأعضاء")
     col1, col2, col3 = st.columns(3)
-    col1.metric("الأعضاء", len(df_members))
-    col2.metric("المستضيفين", len(hosts_list))
-    top_h = df_ref.iloc[0]["host"] if not df_ref.empty else "لا يوجد"
-    top_c = int(df_ref.iloc[0]["count"]) if not df_ref.empty else 0
-    col3.metric("أقوى مستضيف", f"{top_h} ({top_c})")
-
-    st.divider()
+    col1.markdown(f"<div class='glass-card'><h3>👥 الأعضاء</h3><h2>{len(df_members)}</h2></div>", unsafe_allow_html=True)
+    
+    hosts_count = len(df_members['referred_by'].unique()) if not df_members.empty else 0
+    col2.markdown(f"<div class='glass-card'><h3>👑 المشرفين</h3><h2>{hosts_count}</h2></div>", unsafe_allow_html=True)
+    
     if not df_members.empty:
-        cols_to_show = ["nickname", "phone", "referred_by", "received_by", "created_at"]
-        existing_cols = [c for c in cols_to_show if c in df_members.columns]
-        st.dataframe(
-            df_members[existing_cols].rename(columns={
-                "nickname": "اللقب",
-                "phone": "الرقم",
-                "referred_by": "صاحب الدعوة",
-                "received_by": "مسؤول الاستقبال",
-                "created_at": "التاريخ",
-            }),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("النظام فارغ حالياً.")
+        st.dataframe(df_members[['nickname', 'phone', 'referred_by', 'received_by', 'created_at']], use_container_width=True, hide_index=True)
 
-# --- 2. إضافة عضو ---
 with tab_add:
-    st.subheader("➕ تسجيل عضو جديد")
+    st.subheader("إضافة عضو جديد للنقابة")
     with st.form("add_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
-        nickname = col1.text_input("اللقب:")
+        nick = col1.text_input("اللقب:")
         phone = col2.text_input("رقم الهاتف:")
-
-        col3, col4 = st.columns(2)
-        with col3:
-            selected_host = st.selectbox("صاحب الدعوة (المستضيف):", ["مباشر (بدون دعوة)"] + hosts_list)
-            custom_host = st.text_input("أو مستضيف جديد (يدوياً):")
-        with col4:
-            selected_receiver = st.selectbox("تم الاستقبال من طرف (الاستقبال):", ["غير محدد"] + hosts_list)
-            custom_receiver = st.text_input("أو مسؤول استقبال جديد (يدوياً):")
-
-        if st.form_submit_button("تأكيد تسجيل العضو"):
-            if nickname and phone:
-                final_host = custom_host.strip() if custom_host.strip() else selected_host
-                final_receiver = custom_receiver.strip() if custom_receiver.strip() else selected_receiver
-                success, msg = add_member_to_supabase(nickname.strip(), phone.strip(), final_host, final_receiver)
-                if success:
-                    st.success(msg)
+        ref = col1.text_input("من طرف (المستضيف):")
+        rec = col2.text_input("استقبل من طرف (الاستقبال):")
+        
+        if st.form_submit_button("➕ تسجيل العضو"):
+            if nick and phone:
+                if add_member(nick, phone, ref, rec):
+                    st.toast('✅ تم تسجيل العضو بنجاح!', icon='🎉')
                     st.rerun()
                 else:
-                    st.error(msg)
+                    st.error("حدث خطأ!")
             else:
-                st.warning("يرجى ملء اللقب ورقم الهاتف.")
+                st.toast('⚠️ يرجى ملء اللقب والرقم', icon='⚠️')
 
-# --- 3. المستضيفين ---
 with tab_hosts:
-    st.subheader("👥 قائمة المستضيفين والإحالات")
-    sub_t1, sub_t2 = st.tabs(["ترتيب المستضيفين", "أعضاء المستضيف"])
-    
-    with sub_t1:
-        if not df_ref.empty:
-            st.dataframe(df_ref.rename(columns={"host": "المستضيف", "count": "عدد الأعضاء"}), use_container_width=True, hide_index=True)
-        else:
-            st.info("لا توجد إحالات بعد.")
-            
-    with sub_t2:
-        if not df_ref.empty:
-            host_choice = st.selectbox("اختر المستضيف لعرض أعضائه:", df_ref["host"].tolist())
-            invited = df_members[df_members["referred_by"] == host_choice]
-            cols_to_show = ["nickname", "phone", "received_by", "created_at"]
-            existing_cols = [c for c in cols_to_show if c in invited.columns]
-            st.dataframe(invited[existing_cols].rename(columns={"nickname": "اللقب", "phone": "الرقم", "received_by": "تم الاستقبال من طرف", "created_at": "التاريخ"}), use_container_width=True, hide_index=True)
-        else:
-            st.info("لا توجد بيانات.")
+    st.subheader("إحصائيات المشرفين")
+    if not df_members.empty:
+        host_counts = df_members['referred_by'].value_counts().reset_index()
+        host_counts.columns = ['المشرف', 'عدد الأعضاء']
+        st.dataframe(host_counts, use_container_width=True, hide_index=True)
 
-# --- 4. استعلام ---
 with tab_search:
-    st.subheader("🔍 استعلام سريع عن عضو")
+    st.subheader("فحص الألقاب (مرتبة أبجدياً)")
     if not df_members.empty:
-        search_target = st.selectbox("اختر العضو للاستعلام:", df_members["nickname"].tolist())
-        target_info = df_members[df_members["nickname"] == search_target].iloc[0]
+        all_nicknames = df_members['nickname'].tolist()
+        search_target = st.selectbox("ابحث عن لقب للتأكد من توفره:", ["-- اختر أو ابحث --"] + all_nicknames)
+        
+        if search_target != "-- اختر أو ابحث --":
+            info = df_members[df_members['nickname'] == search_target].iloc[0]
+            st.info(f"📌 اللقب: {info['nickname']} | 📞 الرقم: {info['phone']} | 👑 المشرف: {info['referred_by']}")
+            st.markdown(f"[💬 راسل العضو واتساب](https://wa.me/{info['phone']})")
 
-        st.success(f"""
-        📌 **بيانات العضو:** [{target_info['nickname']}]  
-        📞 **الرقم:** {target_info['phone']}  
-        👑 **صاحب الدعوة (المستضيف):** {target_info.get('referred_by', 'مباشر')}  
-        🤝 **تم الاستقبال من طرف:** {target_info.get('received_by', 'غير محدد')}  
-        📅 **تاريخ الانضمام:** {target_info.get('created_at', '')}
-        """)
-
-        clean_num = re.sub(r"\D", "", str(target_info["phone"]))
-        st.markdown(f"[📲 تواصل مباشر عبر الواتساب](https://wa.me/{clean_num})")
-    else:
-        st.info("لا يوجد أعضاء في قاعدة البيانات.")
-
-# --- 5. السجل والإعدادات ---
-with tab_settings:
-    st.subheader("⚙️ إدارة السجل والنظام")
+with tab_export:
+    st.subheader("📄 استخراج أرشيف KONUHA")
+    st.write("استخراج جميع الألقاب المسجلة بالترتيب الأبجدي كملف PDF.")
+    
     if not df_members.empty:
-        member_to_del = st.selectbox("اختر العضو للحذف (سيحذف من الاستقبال والورك فوراً):", ["-- اختر --"] + df_members["nickname"].tolist())
-        if member_to_del != "-- اختر --":
-            target_m = df_members[df_members["nickname"] == member_to_del].iloc[0]
-            if st.button("تأكيد الحذف النهائي", type="primary"):
-                if delete_member_from_supabase(target_m["phone"]):
-                    st.success(f"تم حذف {member_to_del} بنجاح من النظامين.")
-                    st.rerun()
-                else:
-                    st.error("حدث خطأ أثناء الحذف.")
+        if st.button("توليد ملف PDF", type="primary"):
+            try:
+                pdf_bytes = create_pdf(df_members)
+                st.download_button(
+                    label="📥 تحميل الملف",
+                    data=pdf_bytes,
+                    file_name=f"KONUHA_Members_{datetime.date.today()}.pdf",
+                    mime="application/pdf"
+                )
+                st.toast("✅ تم التوليد بنجاح! اضغط للتحميل.", icon="📄")
+            except Exception as e:
+                st.error("ملاحظة: لكي يعمل الـ PDF باللغة العربية، يرجى وضع ملف خط باسم 'cairo.ttf' في نفس المجلد.")
     else:
-        st.info("السجل فارغ.")
+        st.warning("لا توجد بيانات لاستخراجها.")
