@@ -1,3 +1,6 @@
 streamlit
 pandas
 supabase
+fpdf
+arabic-reshaper
+python-bidi
