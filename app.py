@@ -166,11 +166,12 @@ st.markdown(f"""
 
 # ---------------------------------------------------------
 # 6. دوال الاستخراج (PDF & Excel)
-# ---------------------------------------------------------def create_pdf(dataframe):
+# ---------------------------------------------------------
+def create_pdf(dataframe):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
-    # تحميل الخط بصيغة fpdf2 الحديثة بدون uni=True
+    # تحميل خط Cairo المتوافق مع fpdf2
     pdf.add_font('Cairo', fname='cairo.ttf')
     pdf.set_font('Cairo', size=14)
 
@@ -188,6 +189,11 @@ st.markdown(f"""
     
     return bytes(pdf.output())
 
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='أعضاء KONUHA')
+    return output.getvalue()
 
 # ---------------------------------------------------------
 # 7. التبويبات الرئيسية
@@ -231,24 +237,18 @@ with tab_add:
 with tab_hosts:
     st.subheader("إحصائيات المشرفين (شاملة)")
     if not df_members.empty:
-        # حساب الدعوات
         df_ref = df_members['referred_by'].value_counts().reset_index()
         df_ref.columns = ['المشرف', 'الدعوات']
         
-        # حساب الاستقبالات
         df_rec = df_members['received_by'].value_counts().reset_index()
         df_rec.columns = ['المشرف', 'الاستقبالات']
         
-        # دمج الجدولين
         df_hosts_merged = pd.merge(df_ref, df_rec, on='المشرف', how='outer').fillna(0)
         df_hosts_merged['الدعوات'] = df_hosts_merged['الدعوات'].astype(int)
         df_hosts_merged['الاستقبالات'] = df_hosts_merged['الاستقبالات'].astype(int)
         df_hosts_merged['المجموع الكلي'] = df_hosts_merged['الدعوات'] + df_hosts_merged['الاستقبالات']
         
-        # ترتيب حسب المجموع الكلي
         df_hosts_merged = df_hosts_merged.sort_values(by='المجموع الكلي', ascending=False)
-        
-        # استبعاد كلمة "مباشر" أو "غير محدد" إذا حبيت (اختياري، تركناها لتعرف منو دخل بدون مشرف)
         st.dataframe(df_hosts_merged, use_container_width=True, hide_index=True)
     else:
         st.info("لا توجد بيانات حالياً.")
@@ -270,18 +270,16 @@ with tab_export:
     if not df_members.empty:
         col1, col2 = st.columns(2)
         
-        # التصدير كـ PDF
         with col1:
-            st.write("ملف PDF (يتطلب خط Cairo):")
+            st.write("تصدير ملف PDF:")
             try:
                 pdf_bytes = create_pdf(df_members)
                 st.download_button(label="📥 تحميل PDF", data=pdf_bytes, file_name=f"KONUHA_Members_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
             except Exception as e:
-                st.error("ملاحظة: لكي يعمل الـ PDF باللغة العربية، يرجى التأكد من رفع ملف 'cairo.ttf'.")
+                st.error(f"خطأ في الـ PDF: {e}")
         
-        # التصدير كـ Excel (أسهل وأضمن كنسخة احتياطية)
         with col2:
-            st.write("ملف Excel (مضمون ومرتب جداً):")
+            st.write("تصدير ملف Excel:")
             excel_bytes = to_excel(df_members[['nickname', 'phone', 'referred_by', 'received_by', 'created_at']].rename(columns={'nickname': 'اللقب', 'phone': 'الرقم', 'referred_by': 'صاحب الدعوة', 'received_by': 'الاستقبال', 'created_at': 'التاريخ'}))
             st.download_button(label="📊 تحميل Excel", data=excel_bytes, file_name=f"KONUHA_Members_{datetime.date.today()}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     else:
