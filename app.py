@@ -172,8 +172,8 @@ def create_pdf(dataframe):
     pdf.add_page()
     
     # تحميل خط Cairo المتوافق مع fpdf2
-    pdf.add_font('Cairo', fname='cairo.ttf')
-    pdf.set_font('Cairo', size=14)
+    pdf.add_font('Janna', fname='janna.ttf')
+    pdf.set_font('Janna', size=14)
 
     title = "سجل أعضاء نقابة KONUHA"
     reshaped_title = arabic_reshaper.reshape(title)
