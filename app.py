@@ -166,36 +166,28 @@ st.markdown(f"""
 
 # ---------------------------------------------------------
 # 6. دوال الاستخراج (PDF & Excel)
-# ---------------------------------------------------------
-def create_pdf(dataframe):
+# ---------------------------------------------------------def create_pdf(dataframe):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
-    try:
-        pdf.add_font('Cairo', '', 'cairo.ttf', uni=True)
-        pdf.set_font('Cairo', '', 14)
-    except Exception:
-        # في حال عدم وجود الخط
-        pass
+    
+    # تحميل الخط بصيغة fpdf2 الحديثة بدون uni=True
+    pdf.add_font('Cairo', fname='cairo.ttf')
+    pdf.set_font('Cairo', size=14)
 
     title = "سجل أعضاء نقابة KONUHA"
     reshaped_title = arabic_reshaper.reshape(title)
     bidi_title = get_display(reshaped_title)
-    pdf.cell(200, 10, txt=bidi_title, ln=True, align='C')
+    pdf.cell(190, 10, text=bidi_title, new_x="LMARGIN", new_y="NEXT", align='C')
     pdf.ln(10)
 
     for index, row in dataframe.iterrows():
         text = f"اللقب: {row['nickname']} | المشرف: {row['referred_by']} | الاستقبال: {row['received_by']}"
         reshaped_text = arabic_reshaper.reshape(text)
         bidi_text = get_display(reshaped_text)
-        pdf.cell(200, 10, txt=bidi_text, ln=True, align='R')
+        pdf.cell(190, 10, text=bidi_text, new_x="LMARGIN", new_y="NEXT", align='R')
     
-    return pdf.output(dest='S').encode('latin1')
+    return bytes(pdf.output())
 
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='أعضاء KONUHA')
-    return output.getvalue()
 
 # ---------------------------------------------------------
 # 7. التبويبات الرئيسية
