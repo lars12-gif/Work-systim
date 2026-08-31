@@ -3,6 +3,7 @@ import pandas as pd
 import re
 from supabase import create_client, Client
 import datetime
+from io import BytesIO
 
 # مكتبات الـ PDF واللغة العربية
 from fpdf import FPDF
@@ -25,10 +26,8 @@ st.markdown("""
         font-family: 'Cairo', sans-serif !important;
     }
 
-    /* إخفاء شريط Streamlit */
     [data-testid="stHeader"], footer, #MainMenu { display: none !important; }
     
-    /* خلفية الموقع */
     .stApp {
         background-color: #0b0f19;
         background-image: radial-gradient(circle at 15% 50%, rgba(20, 184, 166, 0.08), transparent 25%),
@@ -36,7 +35,6 @@ st.markdown("""
         color: #e2e8f0;
     }
     
-    /* تصميم الزجاج الشفاف */
     .glass-card {
         background: rgba(17, 24, 39, 0.7);
         backdrop-filter: blur(12px);
@@ -49,7 +47,6 @@ st.markdown("""
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     }
     
-    /* اسم النقابة */
     .neon-text {
         font-size: 42px;
         font-weight: 900;
@@ -59,7 +56,6 @@ st.markdown("""
         letter-spacing: 2px;
     }
     
-    /* التبويبات */
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background: rgba(255, 255, 255, 0.03);
@@ -81,7 +77,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 3. نظام الحماية بباسورد (Login System)
+# 3. نظام الحماية بباسورد (Login)
 # ---------------------------------------------------------
 ADMIN_PASSWORD = "123" 
 
@@ -155,7 +151,7 @@ def add_member(nickname, phone, referred_by, received_by):
 df_members, is_online = get_all_members()
 
 # ---------------------------------------------------------
-# 5. الهيدر الرئيسي ومؤشر الحالة
+# 5. الهيدر الرئيسي
 # ---------------------------------------------------------
 status_badge = "🟢 متصل بقاعدة البيانات (Online)" if is_online else "🔴 غير متصل بقاعدة البيانات (Offline)"
 status_color = "#10b981" if is_online else "#ef4444"
@@ -169,7 +165,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. استخراج ملف PDF
+# 6. دوال الاستخراج (PDF & Excel)
 # ---------------------------------------------------------
 def create_pdf(dataframe):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
@@ -178,27 +174,34 @@ def create_pdf(dataframe):
         pdf.add_font('Cairo', '', 'cairo.ttf', uni=True)
         pdf.set_font('Cairo', '', 14)
     except Exception:
-        pdf.set_font('Arial', '', 12)
+        # في حال عدم وجود الخط
+        pass
 
-    title = "سجل ألقاب نقابة KONUHA"
+    title = "سجل أعضاء نقابة KONUHA"
     reshaped_title = arabic_reshaper.reshape(title)
     bidi_title = get_display(reshaped_title)
     pdf.cell(200, 10, txt=bidi_title, ln=True, align='C')
     pdf.ln(10)
 
     for index, row in dataframe.iterrows():
-        text = f"اللقب: {row['nickname']} | المشرف: {row['referred_by']}"
+        text = f"اللقب: {row['nickname']} | المشرف: {row['referred_by']} | الاستقبال: {row['received_by']}"
         reshaped_text = arabic_reshaper.reshape(text)
         bidi_text = get_display(reshaped_text)
         pdf.cell(200, 10, txt=bidi_text, ln=True, align='R')
     
     return pdf.output(dest='S').encode('latin1')
 
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='أعضاء KONUHA')
+    return output.getvalue()
+
 # ---------------------------------------------------------
 # 7. التبويبات الرئيسية
 # ---------------------------------------------------------
 tab_dash, tab_add, tab_hosts, tab_search, tab_export = st.tabs([
-    "📊 لوحة القيادة", "➕ إضافة عضو", "👥 المستضيفين", "🔍 استعلام الألقاب", "📥 استخراج PDF"
+    "📊 لوحة القيادة", "➕ إضافة عضو", "👥 المشرفين", "🔍 استعلام الألقاب", "📥 التصدير (PDF & Excel)"
 ])
 
 with tab_dash:
@@ -209,7 +212,9 @@ with tab_dash:
     col2.markdown(f"<div class='glass-card'><h3>👑 المشرفين</h3><h2>{hosts_count}</h2></div>", unsafe_allow_html=True)
     
     if not df_members.empty:
-        st.dataframe(df_members[['nickname', 'phone', 'referred_by', 'received_by', 'created_at']], use_container_width=True, hide_index=True)
+        st.dataframe(df_members[['nickname', 'phone', 'referred_by', 'received_by', 'created_at']].rename(columns={
+            'nickname': 'اللقب', 'phone': 'الرقم', 'referred_by': 'صاحب الدعوة', 'received_by': 'مسؤول الاستقبال', 'created_at': 'التاريخ'
+        }), use_container_width=True, hide_index=True)
 
 with tab_add:
     st.subheader("إضافة عضو جديد للنقابة")
@@ -232,11 +237,29 @@ with tab_add:
                 st.toast('⚠️ يرجى ملء اللقب والرقم', icon='⚠️')
 
 with tab_hosts:
-    st.subheader("إحصائيات المشرفين")
+    st.subheader("إحصائيات المشرفين (شاملة)")
     if not df_members.empty:
-        host_counts = df_members['referred_by'].value_counts().reset_index()
-        host_counts.columns = ['المشرف', 'عدد الأعضاء']
-        st.dataframe(host_counts, use_container_width=True, hide_index=True)
+        # حساب الدعوات
+        df_ref = df_members['referred_by'].value_counts().reset_index()
+        df_ref.columns = ['المشرف', 'الدعوات']
+        
+        # حساب الاستقبالات
+        df_rec = df_members['received_by'].value_counts().reset_index()
+        df_rec.columns = ['المشرف', 'الاستقبالات']
+        
+        # دمج الجدولين
+        df_hosts_merged = pd.merge(df_ref, df_rec, on='المشرف', how='outer').fillna(0)
+        df_hosts_merged['الدعوات'] = df_hosts_merged['الدعوات'].astype(int)
+        df_hosts_merged['الاستقبالات'] = df_hosts_merged['الاستقبالات'].astype(int)
+        df_hosts_merged['المجموع الكلي'] = df_hosts_merged['الدعوات'] + df_hosts_merged['الاستقبالات']
+        
+        # ترتيب حسب المجموع الكلي
+        df_hosts_merged = df_hosts_merged.sort_values(by='المجموع الكلي', ascending=False)
+        
+        # استبعاد كلمة "مباشر" أو "غير محدد" إذا حبيت (اختياري، تركناها لتعرف منو دخل بدون مشرف)
+        st.dataframe(df_hosts_merged, use_container_width=True, hide_index=True)
+    else:
+        st.info("لا توجد بيانات حالياً.")
 
 with tab_search:
     st.subheader("فحص الألقاب (مرتبة أبجدياً)")
@@ -246,25 +269,28 @@ with tab_search:
         
         if search_target != "-- اختر أو ابحث --":
             info = df_members[df_members['nickname'] == search_target].iloc[0]
-            st.info(f"📌 اللقب: {info['nickname']} | 📞 الرقم: {info['phone']} | 👑 المشرف: {info['referred_by']}")
+            st.info(f"📌 اللقب: {info['nickname']} | 📞 الرقم: {info['phone']} | 👑 المشرف: {info['referred_by']} | 🤝 الاستقبال: {info['received_by']}")
             st.markdown(f"[💬 راسل العضو واتساب](https://wa.me/{info['phone']})")
 
 with tab_export:
     st.subheader("📄 استخراج أرشيف KONUHA")
-    st.write("استخراج جميع الألقاب المسجلة بالترتيب الأبجدي كملف PDF.")
     
     if not df_members.empty:
-        if st.button("توليد ملف PDF", type="primary"):
+        col1, col2 = st.columns(2)
+        
+        # التصدير كـ PDF
+        with col1:
+            st.write("ملف PDF (يتطلب خط Cairo):")
             try:
                 pdf_bytes = create_pdf(df_members)
-                st.download_button(
-                    label="📥 تحميل الملف",
-                    data=pdf_bytes,
-                    file_name=f"KONUHA_Members_{datetime.date.today()}.pdf",
-                    mime="application/pdf"
-                )
-                st.toast("✅ تم التوليد بنجاح! اضغط للتحميل.", icon="📄")
+                st.download_button(label="📥 تحميل PDF", data=pdf_bytes, file_name=f"KONUHA_Members_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
             except Exception as e:
-                st.error("ملاحظة: لكي يعمل الـ PDF باللغة العربية، يرجى وضع ملف خط باسم 'cairo.ttf' في نفس المجلد.")
+                st.error("ملاحظة: لكي يعمل الـ PDF باللغة العربية، يرجى التأكد من رفع ملف 'cairo.ttf'.")
+        
+        # التصدير كـ Excel (أسهل وأضمن كنسخة احتياطية)
+        with col2:
+            st.write("ملف Excel (مضمون ومرتب جداً):")
+            excel_bytes = to_excel(df_members[['nickname', 'phone', 'referred_by', 'received_by', 'created_at']].rename(columns={'nickname': 'اللقب', 'phone': 'الرقم', 'referred_by': 'صاحب الدعوة', 'received_by': 'الاستقبال', 'created_at': 'التاريخ'}))
+            st.download_button(label="📊 تحميل Excel", data=excel_bytes, file_name=f"KONUHA_Members_{datetime.date.today()}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     else:
         st.warning("لا توجد بيانات لاستخراجها.")
