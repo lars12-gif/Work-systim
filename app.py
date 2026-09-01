@@ -34,7 +34,7 @@ st.markdown("""
         background-image: radial-gradient(circle at 15% 50%, rgba(20, 184, 166, 0.08), transparent 25%),
                           radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 25%);
         color: #e2e8f0;
-        padding-bottom: 60px; /* مسافة للفوتر الثابت */
+        padding-bottom: 60px;
     }
     
     .glass-card {
@@ -58,7 +58,6 @@ st.markdown("""
         letter-spacing: 2px;
     }
     
-    /* الفوتر الثابت لحقوقك */
     .aurther-footer {
         position: fixed;
         bottom: 0;
@@ -95,7 +94,6 @@ st.markdown("""
     }
 </style>
 
-<!-- زرع الحقوق بالشريط السفلي -->
 <div class="aurther-footer">
     👑 Developed & Designed By Aurther | KONUHA System © 2026
 </div>
@@ -179,6 +177,16 @@ def add_member(nickname, phone, referred_by, received_by):
     except Exception as e:
         return False, f"خطأ من سوبابيس: {e}"
 
+# --- الدالة الجديدة للحذف الجماعي ---
+def delete_members(phones_list):
+    if not supabase: return False
+    try:
+        # يمسح كل الأعضاء اللي أرقامهم موجودة بالقائمة دفعة وحدة
+        supabase.table("work_members").delete().in_("phone", phones_list).execute()
+        return True
+    except Exception as e:
+        return False
+
 df_members, is_online = get_all_members()
 
 # ---------------------------------------------------------
@@ -197,12 +205,11 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. دوال الاستخراج (ملغمة بحقوق Aurther)
+# 6. دوال الاستخراج (PDF, Excel, PNG)
 # ---------------------------------------------------------
 def create_pdf(dataframe):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
-    
     try:
         pdf.add_font('Janna', fname='janna.ttf')
         pdf.set_font('Janna', size=14)
@@ -221,7 +228,6 @@ def create_pdf(dataframe):
         bidi_text = get_display(reshaped_text)
         pdf.cell(190, 10, text=bidi_text, new_x="LMARGIN", new_y="NEXT", align='R')
     
-    # حقوقك بالـ PDF بأسفل الصفحة
     pdf.set_y(-20)
     try:
         pdf.set_font('Janna', size=10)
@@ -242,7 +248,7 @@ def create_png(dataframe):
     width = 1300
     header_height = 200
     row_height = 70
-    margin_bottom = 120 # كبرنا المساحة الجوة حتى يبرز توقيعك
+    margin_bottom = 120 
     height = header_height + (len(dataframe) * row_height) + margin_bottom
 
     img = Image.new('RGB', (width, height), color='#0b0f19')
@@ -274,7 +280,6 @@ def create_png(dataframe):
         draw.text((1200, y_pos + 20), reshaped_text, font=text_font, fill="#e2e8f0", anchor="rm")
         y_pos += row_height
 
-    # حقوقك على الصورة بالأسفل (بشكل بارز ومستحيل القص)
     footer_text = "⚡ Powered & Developed by Aurther - 2026 👑"
     draw.text((width//2, height - 50), footer_text, font=footer_font, fill="#3b82f6", anchor="mm")
 
@@ -285,8 +290,8 @@ def create_png(dataframe):
 # ---------------------------------------------------------
 # 7. التبويبات الرئيسية
 # ---------------------------------------------------------
-tab_dash, tab_add, tab_hosts, tab_search, tab_export = st.tabs([
-    "📊 لوحة القيادة", "➕ إضافة عضو", "👥 المشرفين", "🔍 استعلام الألقاب", "📥 التصدير والحفظ"
+tab_dash, tab_add, tab_hosts, tab_search, tab_export, tab_delete = st.tabs([
+    "📊 لوحة القيادة", "➕ إضافة عضو", "👥 المشرفين", "🔍 استعلام", "📥 تصدير", "🗑️ إدارة وحذف"
 ])
 
 with tab_dash:
@@ -379,3 +384,29 @@ with tab_export:
                 st.error(f"تأكد من تنصيب مكتبة Pillow. {e}")
     else:
         st.warning("لا توجد بيانات لاستخراجها.")
+
+# --- التبويب الجديد للحذف ---
+with tab_delete:
+    st.subheader("🗑️ طرد الأعضاء القدامى (حذف نهائي)")
+    st.error("⚠️ تنبيه: أي عضو تحذفه منا راح ينمسح نهائياً من الداتا بيس وما يرجع.")
+    
+    if not df_members.empty:
+        # ربط الاسم بالرقم حتى نمسح بالرقم ونضمن الدقة
+        member_dict = dict(zip(df_members['nickname'], df_members['phone']))
+        all_nicks = df_members['nickname'].tolist()
+        
+        selected_nicks = st.multiselect("📌 حدد الأعضاء اللي تريد تطردهم (تقدر تختار أكثر من واحد):", options=all_nicks)
+        
+        if st.button("🚨 تأكيد الحذف", type="primary"):
+            if selected_nicks:
+                phones_to_delete = [member_dict[nick] for nick in selected_nicks]
+                success = delete_members(phones_to_delete)
+                if success:
+                    st.toast('👑 Aurther System: تم مسح الأعضاء المحددین بنجاح!', icon='🗑️')
+                    st.rerun()
+                else:
+                    st.error("حدث خطأ أثناء الاتصال بقاعدة البيانات لغرض الحذف.")
+            else:
+                st.warning("رجاءً حدد عضو واحد على الأقل قبل ما تضغط على زر الحذف.")
+    else:
+        st.info("النظام فارغ حالياً، ماكو أحد تطرده.")
