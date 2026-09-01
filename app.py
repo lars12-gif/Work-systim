@@ -5,10 +5,11 @@ from supabase import create_client, Client
 import datetime
 from io import BytesIO
 
-# مكتبات الـ PDF واللغة العربية
+# مكتبات الـ PDF واللغة العربية والرسم (PNG)
 from fpdf import FPDF
 import arabic_reshaper
 from bidi.algorithm import get_display
+from PIL import Image, ImageDraw, ImageFont
 
 # ---------------------------------------------------------
 # 1. إعداد الصفحة الأساسي
@@ -165,15 +166,18 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. دوال الاستخراج (PDF & Excel)
+# 6. دوال الاستخراج (PDF, Excel, PNG)
 # ---------------------------------------------------------
 def create_pdf(dataframe):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
-    # تحميل خط Cairo المتوافق مع fpdf2
-    pdf.add_font('Janna', fname='janna.ttf')
-    pdf.set_font('Janna', size=14)
+    # تحميل خط Janna 
+    try:
+        pdf.add_font('Janna', fname='janna.ttf')
+        pdf.set_font('Janna', size=14)
+    except:
+        pdf.set_font('Arial', size=14) # احتياطي
 
     title = "سجل أعضاء نقابة KONUHA"
     reshaped_title = arabic_reshaper.reshape(title)
@@ -182,7 +186,8 @@ def create_pdf(dataframe):
     pdf.ln(10)
 
     for index, row in dataframe.iterrows():
-        text = f"اللقب: {row['nickname']} | المشرف: {row['referred_by']} | الاستقبال: {row['received_by']}"
+        # تمت إضافة الرقم هنا حسب الطلب
+        text = f"اللقب: {row['nickname']} | الرقم: {row['phone']} | المشرف: {row['referred_by']} | الاستقبال: {row['received_by']}"
         reshaped_text = arabic_reshaper.reshape(text)
         bidi_text = get_display(reshaped_text)
         pdf.cell(190, 10, text=bidi_text, new_x="LMARGIN", new_y="NEXT", align='R')
@@ -195,11 +200,63 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='أعضاء KONUHA')
     return output.getvalue()
 
+def create_png(dataframe):
+    # إعدادات حجم الصورة والتصميم
+    width = 1300
+    header_height = 200
+    row_height = 70
+    margin_bottom = 60
+    height = header_height + (len(dataframe) * row_height) + margin_bottom
+
+    # إنشاء قماش الصورة بخلفية داكنة
+    img = Image.new('RGB', (width, height), color='#0b0f19')
+    draw = ImageDraw.Draw(img)
+
+    # تحميل الخطوط (نستخدم janna المرفوع)
+    try:
+        title_font = ImageFont.truetype('janna.ttf', 75)
+        sub_font = ImageFont.truetype('janna.ttf', 35)
+        text_font = ImageFont.truetype('janna.ttf', 26)
+    except:
+        title_font = ImageFont.load_default()
+        sub_font = ImageFont.load_default()
+        text_font = ImageFont.load_default()
+
+    # رسم الشعار (KONUHA) بلون نيون
+    title_text = "KONUHA"
+    draw.text((width//2, 80), title_text, font=title_font, fill="#10b981", anchor="mm")
+    
+    # رسم العنوان الفرعي
+    sub_text = f"سجل الأعضاء الرسمي | التاريخ: {datetime.date.today()}"
+    reshaped_sub = get_display(arabic_reshaper.reshape(sub_text))
+    draw.text((width//2, 150), reshaped_sub, font=sub_font, fill="#94a3b8", anchor="mm")
+
+    # خط فاصل تحت الهيدر
+    draw.line([(100, 190), (1200, 190)], fill="#10b981", width=3)
+
+    # رسم بيانات الأعضاء (جدول منسق)
+    y_pos = header_height + 20
+    for index, row in dataframe.iterrows():
+        row_text = f"اللقب: {row['nickname']}   |   الرقم: {row['phone']}   |   المشرف: {row['referred_by']}   |   الاستقبال: {row['received_by']}"
+        reshaped_text = get_display(arabic_reshaper.reshape(row_text))
+        
+        # رسم كارت شفاف لكل عضو
+        draw.rounded_rectangle([(80, y_pos - 10), (1220, y_pos + 50)], radius=12, fill="#111827", outline="#1f2937", width=2)
+        
+        # كتابة النصوص (محاذاة لليمين)
+        draw.text((1200, y_pos + 20), reshaped_text, font=text_font, fill="#e2e8f0", anchor="rm")
+        
+        y_pos += row_height
+
+    output = BytesIO()
+    img.save(output, format='PNG')
+    return output.getvalue()
+
 # ---------------------------------------------------------
 # 7. التبويبات الرئيسية
 # ---------------------------------------------------------
 tab_dash, tab_add, tab_hosts, tab_search, tab_export = st.tabs([
-    "📊 لوحة القيادة", "➕ إضافة عضو", "👥 المشرفين", "🔍 استعلام الألقاب", "📥 التصدير (PDF & Excel)"
+    "📊 لوحة القيادة", "➕ إضافة عضو", "👥 المشرفين", "🔍 استعلام الألقاب", "📥 التصدير والحفظ"
 ])
 
 with tab_dash:
@@ -268,19 +325,27 @@ with tab_export:
     st.subheader("📄 استخراج أرشيف KONUHA")
     
     if not df_members.empty:
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3) # قسمناها لـ 3 عواميد
         
         with col1:
-            st.write("تصدير ملف PDF:")
+            st.write("ملف PDF (للطباعة):")
             try:
                 pdf_bytes = create_pdf(df_members)
-                st.download_button(label="📥 تحميل PDF", data=pdf_bytes, file_name=f"KONUHA_Members_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
+                st.download_button(label="📥 تحميل PDF", data=pdf_bytes, file_name=f"KONUHA_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
             except Exception as e:
-                st.error(f"خطأ في الـ PDF: {e}")
+                st.error(f"خطأ: {e}")
         
         with col2:
-            st.write("تصدير ملف Excel:")
+            st.write("ملف Excel (للأرشفة):")
             excel_bytes = to_excel(df_members[['nickname', 'phone', 'referred_by', 'received_by', 'created_at']].rename(columns={'nickname': 'اللقب', 'phone': 'الرقم', 'referred_by': 'صاحب الدعوة', 'received_by': 'الاستقبال', 'created_at': 'التاريخ'}))
-            st.download_button(label="📊 تحميل Excel", data=excel_bytes, file_name=f"KONUHA_Members_{datetime.date.today()}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            st.download_button(label="📊 تحميل Excel", data=excel_bytes, file_name=f"KONUHA_{datetime.date.today()}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            
+        with col3:
+            st.write("ملف PNG (للمشاركة فخم):")
+            try:
+                png_bytes = create_png(df_members)
+                st.download_button(label="🖼️ تحميل صورة", data=png_bytes, file_name=f"KONUHA_{datetime.date.today()}.png", mime="image/png", use_container_width=True)
+            except Exception as e:
+                st.error(f"تأكد من تنصيب مكتبة Pillow. {e}")
     else:
         st.warning("لا توجد بيانات لاستخراجها.")
