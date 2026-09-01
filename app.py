@@ -14,10 +14,10 @@ from PIL import Image, ImageDraw, ImageFont
 # ---------------------------------------------------------
 # 1. إعداد الصفحة الأساسي
 # ---------------------------------------------------------
-st.set_page_config(page_title="KONUHA | Work System", page_icon="🍃", layout="wide")
+st.set_page_config(page_title="KONUHA | Work System By Aurther", page_icon="👑", layout="wide")
 
 # ---------------------------------------------------------
-# 2. تصميم الـ UI/UX
+# 2. تصميم الـ UI/UX وحقوقك بكل مكان
 # ---------------------------------------------------------
 st.markdown("""
 <style>
@@ -34,6 +34,7 @@ st.markdown("""
         background-image: radial-gradient(circle at 15% 50%, rgba(20, 184, 166, 0.08), transparent 25%),
                           radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 25%);
         color: #e2e8f0;
+        padding-bottom: 60px; /* مسافة للفوتر الثابت */
     }
     
     .glass-card {
@@ -57,6 +58,24 @@ st.markdown("""
         letter-spacing: 2px;
     }
     
+    /* الفوتر الثابت لحقوقك */
+    .aurther-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: rgba(11, 15, 25, 0.85);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid rgba(16, 185, 129, 0.3);
+        color: #10b981;
+        text-align: center;
+        padding: 12px;
+        font-size: 15px;
+        font-weight: 900;
+        z-index: 9999;
+        letter-spacing: 1px;
+    }
+
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background: rgba(255, 255, 255, 0.03);
@@ -75,6 +94,11 @@ st.markdown("""
         color: white !important;
     }
 </style>
+
+<!-- زرع الحقوق بالشريط السفلي -->
+<div class="aurther-footer">
+    👑 Developed & Designed By Aurther | KONUHA System © 2026
+</div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
@@ -86,7 +110,13 @@ if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
 if not st.session_state['authenticated']:
-    st.markdown('<div class="glass-card"><h1 class="neon-text">KONUHA</h1><p>بوابة الدخول للإدارة</p></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="glass-card">
+        <h1 class="neon-text">KONUHA</h1>
+        <p>بوابة الدخول للإدارة</p>
+        <p style="color:#10b981; font-weight:bold; font-size:12px;">🛡️ Secured By Aurther</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -161,23 +191,23 @@ st.markdown(f"""
 <div class="glass-card">
     <h1 class="neon-text">🍃 KONUHA</h1>
     <p style="color: #94a3b8; font-size: 18px; margin-top: 10px;">Work System & Management</p>
+    <div style="margin-top:5px; font-size:12px; color:#3b82f6;">👑 Founder: Aurther</div>
     <div style="margin-top:15px; font-size:14px; color:{status_color}; font-weight: bold;">{status_badge}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. دوال الاستخراج (PDF, Excel, PNG)
+# 6. دوال الاستخراج (ملغمة بحقوق Aurther)
 # ---------------------------------------------------------
 def create_pdf(dataframe):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
-    # تحميل خط Janna 
     try:
         pdf.add_font('Janna', fname='janna.ttf')
         pdf.set_font('Janna', size=14)
     except:
-        pdf.set_font('Arial', size=14) # احتياطي
+        pdf.set_font('Arial', size=14)
 
     title = "سجل أعضاء نقابة KONUHA"
     reshaped_title = arabic_reshaper.reshape(title)
@@ -186,12 +216,20 @@ def create_pdf(dataframe):
     pdf.ln(10)
 
     for index, row in dataframe.iterrows():
-        # تمت إضافة الرقم هنا حسب الطلب
         text = f"اللقب: {row['nickname']} | الرقم: {row['phone']} | المشرف: {row['referred_by']} | الاستقبال: {row['received_by']}"
         reshaped_text = arabic_reshaper.reshape(text)
         bidi_text = get_display(reshaped_text)
         pdf.cell(190, 10, text=bidi_text, new_x="LMARGIN", new_y="NEXT", align='R')
     
+    # حقوقك بالـ PDF بأسفل الصفحة
+    pdf.set_y(-20)
+    try:
+        pdf.set_font('Janna', size=10)
+    except:
+        pdf.set_font('Arial', size=10)
+    footer_text = get_display(arabic_reshaper.reshape("👑 Developed By Aurther - KONUHA 2026"))
+    pdf.cell(0, 10, text=footer_text, align='C')
+
     return bytes(pdf.output())
 
 def to_excel(df):
@@ -201,52 +239,44 @@ def to_excel(df):
     return output.getvalue()
 
 def create_png(dataframe):
-    # إعدادات حجم الصورة والتصميم
     width = 1300
     header_height = 200
     row_height = 70
-    margin_bottom = 60
+    margin_bottom = 120 # كبرنا المساحة الجوة حتى يبرز توقيعك
     height = header_height + (len(dataframe) * row_height) + margin_bottom
 
-    # إنشاء قماش الصورة بخلفية داكنة
     img = Image.new('RGB', (width, height), color='#0b0f19')
     draw = ImageDraw.Draw(img)
 
-    # تحميل الخطوط (نستخدم janna المرفوع)
     try:
         title_font = ImageFont.truetype('janna.ttf', 75)
         sub_font = ImageFont.truetype('janna.ttf', 35)
         text_font = ImageFont.truetype('janna.ttf', 26)
+        footer_font = ImageFont.truetype('janna.ttf', 30)
     except:
-        title_font = ImageFont.load_default()
-        sub_font = ImageFont.load_default()
-        text_font = ImageFont.load_default()
+        title_font = sub_font = text_font = footer_font = ImageFont.load_default()
 
-    # رسم الشعار (KONUHA) بلون نيون
     title_text = "KONUHA"
     draw.text((width//2, 80), title_text, font=title_font, fill="#10b981", anchor="mm")
     
-    # رسم العنوان الفرعي
     sub_text = f"سجل الأعضاء الرسمي | التاريخ: {datetime.date.today()}"
     reshaped_sub = get_display(arabic_reshaper.reshape(sub_text))
     draw.text((width//2, 150), reshaped_sub, font=sub_font, fill="#94a3b8", anchor="mm")
 
-    # خط فاصل تحت الهيدر
     draw.line([(100, 190), (1200, 190)], fill="#10b981", width=3)
 
-    # رسم بيانات الأعضاء (جدول منسق)
     y_pos = header_height + 20
     for index, row in dataframe.iterrows():
         row_text = f"اللقب: {row['nickname']}   |   الرقم: {row['phone']}   |   المشرف: {row['referred_by']}   |   الاستقبال: {row['received_by']}"
         reshaped_text = get_display(arabic_reshaper.reshape(row_text))
         
-        # رسم كارت شفاف لكل عضو
         draw.rounded_rectangle([(80, y_pos - 10), (1220, y_pos + 50)], radius=12, fill="#111827", outline="#1f2937", width=2)
-        
-        # كتابة النصوص (محاذاة لليمين)
         draw.text((1200, y_pos + 20), reshaped_text, font=text_font, fill="#e2e8f0", anchor="rm")
-        
         y_pos += row_height
+
+    # حقوقك على الصورة بالأسفل (بشكل بارز ومستحيل القص)
+    footer_text = "⚡ Powered & Developed by Aurther - 2026 👑"
+    draw.text((width//2, height - 50), footer_text, font=footer_font, fill="#3b82f6", anchor="mm")
 
     output = BytesIO()
     img.save(output, format='PNG')
@@ -284,7 +314,7 @@ with tab_add:
             if nick and phone:
                 success, msg = add_member(nick, phone, ref, rec)
                 if success:
-                    st.toast('✅ تم تسجيل العضو بنجاح!', icon='🎉')
+                    st.toast('👑 Aurther System: تم تسجيل العضو بنجاح!', icon='🎉')
                     st.rerun()
                 else:
                     st.error(msg)
@@ -325,7 +355,7 @@ with tab_export:
     st.subheader("📄 استخراج أرشيف KONUHA")
     
     if not df_members.empty:
-        col1, col2, col3 = st.columns(3) # قسمناها لـ 3 عواميد
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             st.write("ملف PDF (للطباعة):")
