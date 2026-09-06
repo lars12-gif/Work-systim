@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 # ---------------------------------------------------------
 # 1. إعداد الصفحة الأساسي
 # ---------------------------------------------------------
-st.set_page_config(page_title="KONUHA | Work System By Aurther", page_icon="👑", layout="wide")
+st.set_page_config(page_title="TOKYO | Work System By Aurther", page_icon="👑", layout="wide")
 
 # ---------------------------------------------------------
 # 2. تصميم الـ UI/UX وحقوقك بكل مكان
@@ -110,7 +110,7 @@ if 'authenticated' not in st.session_state:
 if not st.session_state['authenticated']:
     st.markdown("""
     <div class="glass-card">
-        <h1 class="neon-text">KONUHA</h1>
+        <h1 class="neon-text">TOKYO</h1>
         <p>بوابة الدخول للإدارة</p>
         <p style="color:#10b981; font-weight:bold; font-size:12px;">🛡️ Secured By Aurther</p>
     </div>
@@ -216,7 +216,7 @@ def create_pdf(dataframe):
     except:
         pdf.set_font('Arial', size=14)
 
-    title = "سجل أعضاء نقابة KONUHA"
+    title = "سجل أعضاء نقابة TOKYO"
     reshaped_title = arabic_reshaper.reshape(title)
     bidi_title = get_display(reshaped_title)
     pdf.cell(190, 10, text=bidi_title, new_x="LMARGIN", new_y="NEXT", align='C')
@@ -233,7 +233,7 @@ def create_pdf(dataframe):
         pdf.set_font('Janna', size=10)
     except:
         pdf.set_font('Arial', size=10)
-    footer_text = get_display(arabic_reshaper.reshape("👑 Developed By Aurther - KONUHA 2026"))
+    footer_text = get_display(arabic_reshaper.reshape("👑 Developed By Aurther - TOKYO 2026"))
     pdf.cell(0, 10, text=footer_text, align='C')
 
     return bytes(pdf.output())
@@ -241,7 +241,7 @@ def create_pdf(dataframe):
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='أعضاء KONUHA')
+        df.to_excel(writer, index=False, sheet_name='أعضاء TOKYO')
     return output.getvalue()
 
 def create_png(dataframe):
@@ -262,7 +262,7 @@ def create_png(dataframe):
     except:
         title_font = sub_font = text_font = footer_font = ImageFont.load_default()
 
-    title_text = "KONUHA"
+    title_text = "TOKYO"
     draw.text((width//2, 80), title_text, font=title_font, fill="#10b981", anchor="mm")
     
     sub_text = f"سجل الأعضاء الرسمي | التاريخ: {datetime.date.today()}"
