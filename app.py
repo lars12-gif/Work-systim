@@ -95,7 +95,7 @@ st.markdown("""
 </style>
 
 <div class="aurther-footer">
-    👑 Developed & Designed By Aurther | KONUHA System © 2026
+    👑 Developed & Designed By Aurther | TOKYO System © 2026
 </div>
 """, unsafe_allow_html=True)
 
@@ -197,7 +197,7 @@ status_color = "#10b981" if is_online else "#ef4444"
 
 st.markdown(f"""
 <div class="glass-card">
-    <h1 class="neon-text">🍃 KONUHA</h1>
+    <h1 class="neon-text">👑 TOKYO</h1>
     <p style="color: #94a3b8; font-size: 18px; margin-top: 10px;">Work System & Management</p>
     <div style="margin-top:5px; font-size:12px; color:#3b82f6;">👑 Founder: Aurther</div>
     <div style="margin-top:15px; font-size:14px; color:{status_color}; font-weight: bold;">{status_badge}</div>
@@ -357,7 +357,7 @@ with tab_search:
             st.markdown(f"[💬 راسل العضو واتساب](https://wa.me/{info['phone']})")
 
 with tab_export:
-    st.subheader("📄 استخراج أرشيف KONUHA")
+    st.subheader("📄 استخراج أرشيف TOKYO")
     
     if not df_members.empty:
         col1, col2, col3 = st.columns(3)
@@ -366,20 +366,20 @@ with tab_export:
             st.write("ملف PDF (للطباعة):")
             try:
                 pdf_bytes = create_pdf(df_members)
-                st.download_button(label="📥 تحميل PDF", data=pdf_bytes, file_name=f"KONUHA_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
+                st.download_button(label="📥 تحميل PDF", data=pdf_bytes, file_name=f"TOKYO_{datetime.date.today()}.pdf", mime="application/pdf", use_container_width=True)
             except Exception as e:
                 st.error(f"خطأ: {e}")
         
         with col2:
             st.write("ملف Excel (للأرشفة):")
             excel_bytes = to_excel(df_members[['nickname', 'phone', 'referred_by', 'received_by', 'created_at']].rename(columns={'nickname': 'اللقب', 'phone': 'الرقم', 'referred_by': 'صاحب الدعوة', 'received_by': 'الاستقبال', 'created_at': 'التاريخ'}))
-            st.download_button(label="📊 تحميل Excel", data=excel_bytes, file_name=f"KONUHA_{datetime.date.today()}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            st.download_button(label="📊 تحميل Excel", data=excel_bytes, file_name=f"TOKYO_{datetime.date.today()}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
             
         with col3:
             st.write("ملف PNG (للمشاركة فخم):")
             try:
                 png_bytes = create_png(df_members)
-                st.download_button(label="🖼️ تحميل صورة", data=png_bytes, file_name=f"KONUHA_{datetime.date.today()}.png", mime="image/png", use_container_width=True)
+                st.download_button(label="🖼️ تحميل صورة", data=png_bytes, file_name=f"TOKYO_{datetime.date.today()}.png", mime="image/png", use_container_width=True)
             except Exception as e:
                 st.error(f"تأكد من تنصيب مكتبة Pillow. {e}")
     else:
